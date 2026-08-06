@@ -68,14 +68,19 @@ export const canAccessArea = (
   }
 
   // Fallback genérico de correspondência exata para a área do utilizador
-  if (uSector && tSector && tSector === uSector) return true;
-  if (uDept && tDept && tDept === uDept) return true;
-  if (uDir && tDir && tDir === uDir) return true;
+  // We match the most specific level the user belongs to, preventing them from seeing broader areas
+  if (uSector && tSector) {
+    if (tSector === uSector || tSector.includes(uSector) || uSector.includes(tSector)) return true;
+  } else if (uDept && tDept) {
+    if (tDept === uDept || tDept.includes(uDept) || uDept.includes(tDept)) return true;
+  } else if (uDir && tDir) {
+    if (tDir === uDir || tDir.includes(uDir) || uDir.includes(tDir)) return true;
+  }
 
-  // Partial match
-  if (uSector && tSector.includes(uSector)) return true;
-  if (uDept && tDept.includes(uDept)) return true;
-  if (uDir && tDir.includes(uDir)) return true;
+  // If activity is at department level (no sector) and user is in a sector of that department
+  if (uSector && uDept && !tSector && tDept) {
+     if (tDept === uDept || tDept.includes(uDept) || uDept.includes(tDept)) return true;
+  }
 
   return false;
 };
@@ -166,9 +171,9 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
 
     // Se estiver tramitado para o gabinete/área atual do usuário, conceder acesso
     if (a.currentGabinete) {
-      const uArea = (user.setor || user.reparticao || user.departamento || user.direcao || "").toLowerCase();
+      const uArea = (user.setor || user.reparticao || user.departamento || user.direcao || "").toLowerCase().trim();
       const aGabinete = a.currentGabinete.toLowerCase();
-      if (aGabinete.includes(uArea) || uArea.includes(aGabinete)) return true;
+      if (uArea && (aGabinete.includes(uArea) || uArea.includes(aGabinete))) return true;
     }
 
     const aDir = (a.direcao || "").trim();

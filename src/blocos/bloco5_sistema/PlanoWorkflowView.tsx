@@ -1339,7 +1339,7 @@ export default function PlanoWorkflowView({
       "Centro de Incubação de Empresas",
     ];
 
-    const yearActs = rawActivities.filter((a) => {
+    const yearActs = filteredActivities.filter((a) => {
       if (!a) return false;
       if (!a.ano) return true;
       return Number(a.ano) === Number(selectedYear);
@@ -5259,7 +5259,7 @@ export default function PlanoWorkflowView({
                                   (a) =>
                                     isDPEP ||
                                     isSuperBossUser(user) ||
-                                    !user?.reparticao ||
+                                    
                                     a.reparticao === user.reparticao ||
                                     a.setor === user.setor,
                                 )
@@ -5350,7 +5350,7 @@ export default function PlanoWorkflowView({
                                   (a) =>
                                     isDPEP ||
                                     isSuperBossUser(user) ||
-                                    !user?.departamento ||
+                                    
                                     a.departamento === user.departamento,
                                 )
                                 .map((activity, idx) => (
@@ -5580,7 +5580,7 @@ export default function PlanoWorkflowView({
                                 (a) =>
                                   (a.status as any) === "planificacao" &&
                                   !a.isPESOE &&
-                                  (!user?.direcao ||
+                                  (
                                     isSuperBossUser(user) ||
                                     a.direcao === user.direcao),
                               ).length
@@ -5601,7 +5601,7 @@ export default function PlanoWorkflowView({
                                     (a) =>
                                       (a.status as any) === "planificacao" &&
                                       !a.isPESOE &&
-                                      (!user?.direcao ||
+                                      (
                                         isSuperBossUser(user) ||
                                         a.direcao === user.direcao),
                                   )
@@ -5724,7 +5724,7 @@ export default function PlanoWorkflowView({
                                   (a) =>
                                     (a.status as any) === "planificacao" &&
                                     !a.isPESOE &&
-                                    (!user?.direcao ||
+                                    (
                                       isSuperBossUser(user) ||
                                       a.direcao === user.direcao),
                                 )
@@ -5768,7 +5768,7 @@ export default function PlanoWorkflowView({
                                   (a) =>
                                     (a.status as any) === "planificacao" &&
                                     !a.isPESOE &&
-                                    (!user?.direcao ||
+                                    (
                                       isSuperBossUser(user) ||
                                       a.direcao === user.direcao),
                                 )
@@ -5825,7 +5825,7 @@ export default function PlanoWorkflowView({
                                 (a) =>
                                   (a.status as any) === "planificacao" &&
                                   !a.isPESOE &&
-                                  (!user?.direcao ||
+                                  (
                                     isSuperBossUser(user) ||
                                     a.direcao === user.direcao),
                               ).length === 0 && (
@@ -7342,7 +7342,7 @@ export default function PlanoWorkflowView({
                             ...activity,
                             id: newId || activity.id,
                           };
-                          setRawActivities((prev) => [savedActivity, ...prev]);
+                          setRawActivities((prev) => { if (prev.some(a => a.id === savedActivity.id)) { return prev.map(a => a.id === savedActivity.id ? savedActivity : a); } return [savedActivity, ...prev]; });
 
                           console.log(
                             "PlanoWorkflowView: Fechando formulário.",

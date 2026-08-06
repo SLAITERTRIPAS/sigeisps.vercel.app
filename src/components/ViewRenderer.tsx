@@ -41,6 +41,7 @@ import { firestoreService } from "../lib/firestoreService";
 import { ErrorBoundary } from "./ErrorBoundary";
 import EventBlock from "../blocos/bloco8_gerais/EventBlock";
 import { RefreshCw, X } from "lucide-react";
+import { isSuperBossUser, getUserWorkspace } from "../lib/auth";
 
 interface ViewRendererProps {
   view: string;
@@ -248,6 +249,21 @@ export const ViewRenderer: React.FC<ViewRendererProps> = ({
       return <LoginScreen onClose={goBack} onLogin={onLogin} onRegisterClick={() => onSetView("registration_form")} events={events} />;
 
     case "menu":
+      if (extendedUser && !isSuperBossUser(extendedUser)) {
+        const workspace = getUserWorkspace(extendedUser);
+        if (workspace) {
+          if (onSetView) onSetView("dashboard");
+          if (setDashboardTitle) setDashboardTitle(workspace);
+          return (
+            <div className="flex flex-col items-center justify-center h-full bg-slate-50">
+              <div className="flex flex-col items-center gap-4">
+                <RefreshCw className="animate-spin text-blue-900" size={32} />
+                <p className="text-blue-900 font-black text-xs tracking-widest uppercase">Redirecionando para o Painel...</p>
+              </div>
+            </div>
+          );
+        }
+      }
       return <MainMenu user={extendedUser} onNavigate={openSubMenu} onShowAlert={onShowAlert} onBack={goBack} onLogout={onLogout} />;
 
     case "submenu":

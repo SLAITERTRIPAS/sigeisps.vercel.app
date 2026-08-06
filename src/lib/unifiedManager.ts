@@ -6,6 +6,65 @@ export interface UnifiedProduct extends ProdutoMercado {
   updatedAt?: string;
   rubrica?: string;
   necessidade?: string;
+  categoria?: string;
+}
+
+export function getCategoryForRubricaOrNecessidade(rubrica?: string, necessidade?: string): string {
+  const r = (rubrica || "").toLowerCase();
+  const n = (necessidade || "").toLowerCase();
+  if (
+    r.includes("121") ||
+    r.includes("bens") ||
+    n.includes("combustível") ||
+    n.includes("material") ||
+    n.includes("fardamento") ||
+    n.includes("medicamento") ||
+    n.includes("género") ||
+    n.includes("ferramenta") ||
+    n.includes("semente") ||
+    n.includes("aliment") ||
+    n.includes("copa") ||
+    n.includes("informática")
+  ) {
+    return "121 - Bens de Consumo e Materiais";
+  }
+  if (
+    r.includes("122") ||
+    r.includes("serviços") ||
+    n.includes("comunicação") ||
+    n.includes("passagem") ||
+    n.includes("renda") ||
+    n.includes("manutenção") ||
+    n.includes("transporte") ||
+    n.includes("seguro") ||
+    n.includes("água") ||
+    n.includes("energia") ||
+    n.includes("limpeza") ||
+    n.includes("gráficos")
+  ) {
+    return "122 - Serviços de Terceiros e Encargos";
+  }
+  if (
+    r.includes("112") ||
+    r.includes("pessoal") ||
+    n.includes("ajuda") ||
+    n.includes("diária") ||
+    n.includes("subsídio")
+  ) {
+    return "112 - Despesas com Pessoal e Diárias";
+  }
+  if (
+    r.includes("1434") ||
+    r.includes("famílias") ||
+    r.includes("transferência") ||
+    n.includes("bolsa")
+  ) {
+    return "1434 - Transferências e Bolsas";
+  }
+  if (r.includes("12") || r.includes("findos")) {
+    return "12 - Exercícios Findos";
+  }
+  return "121 - Bens de Consumo e Materiais";
 }
 
 function getRubricaForNecessidade(nec: string): string {
@@ -113,13 +172,16 @@ export async function getUnifiedProducts(): Promise<UnifiedProduct[]> {
           const singularName = toSingularProductName(p.nome);
           const key = singularName.trim().toLowerCase();
           if (!deletedKeys.has(key)) {
+            const rubrica = p.rubrica || "Bens - 121";
+            const necessidade = p.necessidade || "Geral";
             map.set(key, {
               nome: singularName,
               preco: Number(p.preco) || 0,
               unidade: p.unidade || "Unidade",
               especificacao: p.especificacao || "",
-              rubrica: p.rubrica || "Bens - 121",
-              necessidade: p.necessidade || "Geral",
+              rubrica: rubrica,
+              necessidade: necessidade,
+              categoria: p.categoria || getCategoryForRubricaOrNecessidade(rubrica, necessidade),
               updatedAt: p.updatedAt,
             });
           }
@@ -143,6 +205,7 @@ export async function getUnifiedProducts(): Promise<UnifiedProduct[]> {
           especificacao: p.especificacao || "",
           rubrica: rubrica,
           necessidade: necessidade,
+          categoria: getCategoryForRubricaOrNecessidade(rubrica, necessidade),
         });
       }
     });
@@ -166,13 +229,16 @@ export async function getUnifiedProducts(): Promise<UnifiedProduct[]> {
                   const pKey = singularName.toLowerCase();
                   if (!deletedKeys.has(pKey)) {
                     const existing = map.get(pKey);
+                    const rubrica = r.rubrica || existing?.rubrica || getRubricaForNecessidade(r.necessidade);
+                    const necessidade = r.necessidade || existing?.necessidade || "Geral";
                     map.set(pKey, {
                       nome: singularName,
                       preco: Number(r.precoUnitario || r.preco || existing?.preco) || 0,
                       unidade: r.detalhes || r.unidade || existing?.unidade || "Unidade",
                       especificacao: r.especificacao || existing?.especificacao || "",
-                      rubrica: r.rubrica || existing?.rubrica || getRubricaForNecessidade(r.necessidade),
-                      necessidade: r.necessidade || existing?.necessidade || "Geral",
+                      rubrica: rubrica,
+                      necessidade: necessidade,
+                      categoria: existing?.categoria || getCategoryForRubricaOrNecessidade(rubrica, necessidade),
                     });
                   }
                 }
@@ -196,13 +262,16 @@ export async function getUnifiedProducts(): Promise<UnifiedProduct[]> {
           const key = singularName.trim().toLowerCase();
           if (!deletedKeys.has(key)) {
             const existing = map.get(key);
+            const rubrica = p.rubrica || existing?.rubrica || "Bens - 121";
+            const necessidade = p.necessidade || existing?.necessidade || "Geral";
             map.set(key, {
               nome: singularName,
               preco: Number(p.preco) || 0,
               unidade: p.unidade || existing?.unidade || "Unidade",
               especificacao: p.especificacao || existing?.especificacao || "",
-              rubrica: p.rubrica || existing?.rubrica || "Bens - 121",
-              necessidade: p.necessidade || existing?.necessidade || "Geral",
+              rubrica: rubrica,
+              necessidade: necessidade,
+              categoria: p.categoria || existing?.categoria || getCategoryForRubricaOrNecessidade(rubrica, necessidade),
               updatedAt: p.updatedAt,
             });
           }
@@ -217,7 +286,109 @@ export async function getUnifiedProducts(): Promise<UnifiedProduct[]> {
   return result;
 }
 
-export async function saveUnifiedProduct(product: { nome: string; preco: number; unidade: string; especificacao: string; rubrica?: string; necessity?: string; necessidade?: string }) {
+export async function deduplicateDatabaseProducts(): Promise<{ totalUnique: number; duplicatesRemoved: number }> {
+  try {
+    const remoteProducts = await firestoreService.produtosUnificados.get();
+    const deletedKeys = getDeletedProductKeys();
+
+    const groups = new Map<string, any[]>();
+    remoteProducts.forEach((doc: any) => {
+      if (doc && doc.nome) {
+        const key = toSingularProductName(doc.nome).trim().toLowerCase();
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(doc);
+      }
+    });
+
+    let duplicatesRemoved = 0;
+    const cleanList: UnifiedProduct[] = [];
+
+    for (const [key, docs] of groups.entries()) {
+      if (deletedKeys.has(key)) {
+        for (const d of docs) {
+          if (d.id) {
+            await firestoreService.produtosUnificados.delete(d.id).catch(() => {});
+          }
+        }
+        continue;
+      }
+
+      docs.sort((a, b) => {
+        const timeA = new Date(a.updatedAt || 0).getTime();
+        const timeB = new Date(b.updatedAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+      const master = docs[0];
+      const singularName = toSingularProductName(master.nome);
+      const masterDocId = `prod_${key}`.replace(/[^a-zA-Z0-9_]/g, "_");
+      const rubrica = master.rubrica || "Bens - 121";
+      const necessidade = master.necessidade || "Geral";
+
+      const cleanProduct: UnifiedProduct = {
+        id: masterDocId,
+        nome: singularName,
+        preco: Number(master.preco) || 0,
+        unidade: master.unidade || "Unidade",
+        especificacao: master.especificacao || "",
+        rubrica: rubrica,
+        necessidade: necessidade,
+        categoria: getCategoryForRubricaOrNecessidade(rubrica, necessidade),
+        updatedAt: master.updatedAt || new Date().toISOString(),
+      };
+
+      await firestoreService.produtosUnificados.set(masterDocId, cleanProduct).catch(() => {});
+      cleanList.push(cleanProduct);
+
+      for (let i = 1; i < docs.length; i++) {
+        if (docs[i].id && docs[i].id !== masterDocId) {
+          await firestoreService.produtosUnificados.delete(docs[i].id).catch(() => {});
+          duplicatesRemoved++;
+        }
+      }
+    }
+
+    const existingKeys = new Set(cleanList.map((p) => toSingularProductName(p.nome).trim().toLowerCase()));
+    Object.entries(PRODUTOS_POR_NECESSIDADE).forEach(([necessidade, prods]) => {
+      const rubrica = getRubricaForNecessidade(necessidade);
+      prods.forEach((p) => {
+        const singularName = toSingularProductName(p.nome);
+        const key = singularName.trim().toLowerCase();
+        if (!deletedKeys.has(key) && !existingKeys.has(key)) {
+          const docId = `prod_${key}`.replace(/[^a-zA-Z0-9_]/g, "_");
+          const prodObj: UnifiedProduct = {
+            id: docId,
+            nome: singularName,
+            preco: p.preco || 0,
+            unidade: p.unidade || "Unidade",
+            especificacao: p.especificacao || "",
+            rubrica: rubrica,
+            necessidade: necessidade,
+            categoria: getCategoryForRubricaOrNecessidade(rubrica, necessidade),
+            updatedAt: new Date().toISOString(),
+          };
+          firestoreService.produtosUnificados.set(docId, prodObj).catch(() => {});
+          cleanList.push(prodObj);
+          existingKeys.add(key);
+        }
+      });
+    });
+
+    localStorage.setItem("sigep_unified_products", JSON.stringify(cleanList));
+
+    return {
+      totalUnique: cleanList.length,
+      duplicatesRemoved,
+    };
+  } catch (err) {
+    console.error("Erro ao deduplicar produtos na base de dados:", err);
+    return { totalUnique: 0, duplicatesRemoved: 0 };
+  }
+}
+
+export async function saveUnifiedProduct(product: { nome: string; preco: number; unidade: string; especificacao: string; rubrica?: string; necessity?: string; necessidade?: string; categoria?: string }) {
   try {
     const current = await getUnifiedProducts();
     const singularName = toSingularProductName(product.nome);
@@ -233,13 +404,18 @@ export async function saveUnifiedProduct(product: { nome: string; preco: number;
     const index = current.findIndex((p) => toSingularProductName(p.nome).trim().toLowerCase() === key);
     const existing = index >= 0 ? current[index] : null;
 
+    const rubrica = product.rubrica || existing?.rubrica || "Bens - 121";
+    const necessidade = product.necessidade || product.necessity || existing?.necessidade || "Geral";
+    const categoria = product.categoria || existing?.categoria || getCategoryForRubricaOrNecessidade(rubrica, necessidade);
+
     const updatedProduct: UnifiedProduct = {
       nome: singularName,
       preco: Number(product.preco) || 0,
       unidade: product.unidade || existing?.unidade || "Unidade",
       especificacao: product.especificacao || existing?.especificacao || "",
-      rubrica: product.rubrica || existing?.rubrica || "Bens - 121",
-      necessidade: product.necessidade || product.necessity || existing?.necessidade || "Geral",
+      rubrica: rubrica,
+      necessidade: necessidade,
+      categoria: categoria,
       updatedAt: new Date().toISOString(),
     };
 
@@ -253,9 +429,87 @@ export async function saveUnifiedProduct(product: { nome: string; preco: number;
     localStorage.setItem("sigep_unified_products", JSON.stringify(newList));
 
     const docId = `prod_${key}`.replace(/[^a-zA-Z0-9_]/g, "_");
-    firestoreService.produtosUnificados.set(docId, updatedProduct).catch((err) => {
-      console.warn("Aviso ao salvar produto unificado no Firestore:", err);
-    });
+    await firestoreService.produtosUnificados.set(docId, updatedProduct);
+
+    // Tarefa 3: Sincronizar preços em planos já planificados (não aprovados/submetidos definitivamente)
+    // Buscamos todas as atividades que não estão em estado terminal e atualizamos as rubricas que usam este produto
+    try {
+      const allActs = await firestoreService.actividades.get();
+      const updatableStatuses = ["draft", "departamento", "direcao", "contabilidade", "plano", "planificado", "Planificado", "Plano", "Aguardando", "Por Validar"];
+      
+      for (const act of allActs) {
+        if (!act.id) continue;
+        const currentStatus = act.status || "draft";
+        
+        // Se a atividade está num status que permite atualização e tem rubricas
+        if (updatableStatuses.includes(currentStatus) && Array.isArray(act.rubricas)) {
+          let actChanged = false;
+          const newRubricas = act.rubricas.map((r: any) => {
+            const rProdName = toSingularProductName(r.nomeProduto || "").toLowerCase();
+            if (rProdName === key) {
+              const newPreco = Number(updatedProduct.preco) || 0;
+              const newUnidade = updatedProduct.unidade || r.detalhes;
+              const newSpec = updatedProduct.especificacao || r.especificacao;
+              
+              if (r.precoUnitario !== newPreco || r.detalhes !== newUnidade || r.especificacao !== newSpec) {
+                actChanged = true;
+                const updatedR = { ...r, precoUnitario: newPreco, detalhes: newUnidade, especificacao: newSpec };
+                // Recalcular valor total da rubrica
+                if (updatedR.quantidade) {
+                  updatedR.valorTotal = updatedR.quantidade * newPreco;
+                }
+                return updatedR;
+              }
+            }
+            return r;
+          });
+
+          if (actChanged) {
+            await firestoreService.actividades.update(act.id, { 
+              rubricas: newRubricas,
+              updatedAt: new Date().toISOString(),
+              syncSource: "product_price_update"
+            });
+          }
+        }
+      }
+
+      // Também atualizar rascunhos (Drafts)
+      const allDrafts = await firestoreService.drafts.get();
+      for (const d of allDrafts) {
+        if (!d.id) continue;
+        if (Array.isArray(d.rubricas)) {
+          let draftChanged = false;
+          const newDraftRubricas = d.rubricas.map((r: any) => {
+            const rProdName = toSingularProductName(r.nomeProduto || "").toLowerCase();
+            if (rProdName === key) {
+              const newPreco = Number(updatedProduct.preco) || 0;
+              const newUnidade = updatedProduct.unidade || r.detalhes;
+              const newSpec = updatedProduct.especificacao || r.especificacao;
+              
+              if (r.precoUnitario !== newPreco || r.detalhes !== newUnidade || r.especificacao !== newSpec) {
+                draftChanged = true;
+                const updatedR = { ...r, precoUnitario: newPreco, detalhes: newUnidade, especificacao: newSpec };
+                if (updatedR.quantidade) {
+                  updatedR.valorTotal = updatedR.quantidade * newPreco;
+                }
+                return updatedR;
+              }
+            }
+            return r;
+          });
+
+          if (draftChanged) {
+            await firestoreService.drafts.update(d.id, { 
+              rubricas: newDraftRubricas,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        }
+      }
+    } catch (syncError) {
+      console.error("Erro na sincronização global de preços:", syncError);
+    }
 
     return getUnifiedProducts();
   } catch (e) {

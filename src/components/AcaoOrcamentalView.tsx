@@ -80,56 +80,251 @@ export const OFFICIAL_SISTAFE_RUBRICAS = [
 
 export function getOfficialRubricaLabel(rubricaRaw?: string, necessidadeRaw?: string): string {
   const rubTrim = (rubricaRaw || "").trim();
-  if (rubTrim) {
-    for (const item of OFFICIAL_SISTAFE_RUBRICAS) {
-      if (rubTrim.toLowerCase().includes(item.code)) {
-        return `${item.code} - ${item.name}`;
-      }
-    }
-    return rubTrim;
-  }
+  const necTrim = (necessidadeRaw || "").trim();
+  const combined = `${rubTrim} ${necTrim}`.trim();
+  if (!combined) return "121098 - Outros bens de consumo";
 
-  const combined = `${necessidadeRaw || ""}`.toLowerCase();
+  const lowerCombined = combined.toLowerCase();
+  const cleanCombined = lowerCombined.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  // 1. Procurar código de 6 dígitos oficial nas strings recebidas
   for (const item of OFFICIAL_SISTAFE_RUBRICAS) {
-    if (combined.includes(item.code)) {
+    if (lowerCombined.includes(item.code)) {
       return `${item.code} - ${item.name}`;
     }
   }
 
-  // Keyword matchers only if rubricaRaw is empty
-  if (combined.includes("ajuda de custo") && combined.includes("fora")) return "112102 - Ajuda de custo fora do país para pessoal civil";
-  if (combined.includes("ajuda de custo") || combined.includes("diária") || combined.includes("diaria")) return "112101 - Ajuda de custo dentro do país para pessoal civil";
-  if (combined.includes("combust") || combined.includes("lubrificant") || combined.includes("gasoleo") || combined.includes("gasolina")) return "121001 - Combustíveis e lubrificantes";
-  if (combined.includes("manutenção de bens imóveis") || combined.includes("manutencao de bens imoveis") || combined.includes("obra") || combined.includes("edifício")) return "121002 - Material para manutenção e reparação de bens imóveis";
-  if (combined.includes("manutenção de bens móveis") || combined.includes("manutencao de bens moveis")) return "121003 - Material para manutenção e reparação de bens imóveis";
-  if (combined.includes("escritório") || combined.includes("escritorio") || combined.includes("resma") || combined.includes("papel") || combined.includes("caneta") || combined.includes("material de consumo")) return "121005 - Material de consumo para escritório";
-  if (combined.includes("duradouro de escritório") || combined.includes("mesa") || combined.includes("cadeira")) return "121006 - Material duradouro de escritório";
-  if (combined.includes("fardamento") || combined.includes("calçado") || combined.includes("vestuário") || combined.includes("uniforme")) return "121007 - Fardamentos e calçados";
-  if (combined.includes("sobressalente") || combined.includes("motor") || combined.includes("peça")) return "121008 - Sobressalentes para equipamentos máquinas e motores";
-  if (combined.includes("medicamento") || combined.includes("remédio") || combined.includes("saúde") || combined.includes("apósito")) return "121009 - Medicamentos e apósitos";
-  if (combined.includes("géneros alimentícios") || combined.includes("generos alimenticios") || combined.includes("alimento") || combined.includes("lanche") || combined.includes("refeição")) return "121010 - Géneros alimentícios";
-  if (combined.includes("limpeza") || combined.includes("higiene") || combined.includes("detergente") || combined.includes("sabão")) return "121011 - Material de limpeza e higiene";
-  if (combined.includes("ferramenta")) return "121014 - Ferramentas de uso duradouro";
-  if (combined.includes("desporto") || combined.includes("esporte") || combined.includes("bola")) return "121018 - Material duradouro para desporto";
-  if (combined.includes("consumo para informática") || combined.includes("toner") || combined.includes("tinteiro") || combined.includes("cartucho")) return "121022 - Material de consumo para informática";
-  if (combined.includes("computador") || combined.includes("laptop") || combined.includes("impressora") || combined.includes("duradouro para informática")) return "121023 - Material duradouro para informática";
-  if (combined.includes("software") || combined.includes("licença")) return "121024 - Software de base";
-  if (combined.includes("copa") || combined.includes("cozinha") || combined.includes("chá") || combined.includes("café")) return "121026 - Material de consumo para copa e cozinha";
-  if (combined.includes("semente") || combined.includes("planta") || combined.includes("insumo") || combined.includes("adubo")) return "121028 - Sementes, plantas e insumos";
-  if (combined.includes("comunicação") || combined.includes("comunicacao") || combined.includes("telefone") || combined.includes("internet") || combined.includes("crédito")) return "122001 - Comunicações em geral";
-  if (combined.includes("passagem") || combined.includes("transporte") || combined.includes("viagem")) return "122002 - Passagens dentro do país";
-  if (combined.includes("renda") || combined.includes("aluguel")) return "122004 - Renda de instalações";
-  if (combined.includes("manutenção e reparação de veículos") || combined.includes("reparação de veículo") || combined.includes("oficina")) return "122007 - Manutenção e reparação de veículos";
-  if (combined.includes("seguro")) return "122009 - Seguros";
-  if (combined.includes("água") || combined.includes("agua")) return "122012 - Água";
-  if (combined.includes("energia") || combined.includes("eléctrica") || combined.includes("eletrica")) return "122013 - Energia eléctrica";
-  if (combined.includes("serviços gráficos") || combined.includes("servicos graficos") || combined.includes("impressão") || combined.includes("banner")) return "122024 - Serviços gráficos";
-  if (combined.includes("comunidade")) return "143107 - Transferências a comunidade local";
-  if (combined.includes("bolsa")) return "143401 - Bolsa de estudos no país";
-  if (combined.includes("família") || combined.includes("familia")) return "143499 - Outras transferências a famílias";
+  // 2. Procurar correspondência exata ou parcial com o nome oficial da rúbrica
+  for (const item of OFFICIAL_SISTAFE_RUBRICAS) {
+    const cleanItemName = item.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (cleanCombined.includes(cleanItemName) || cleanItemName.includes(cleanCombined)) {
+      return `${item.code} - ${item.name}`;
+    }
+  }
 
-  if (combined.includes("serviço") || combined.includes("servico") || combined.includes("consultoria")) return "122099 - Outros serviços";
-  if (combined.includes("bens") || combined.includes("material") || combined.includes("consumo")) return "121098 - Outros bens de consumo";
+  // 3. Mapeamento por palavras-chave oficiais do SISTAFE Moçambique
+  if (
+    cleanCombined.includes("combust") ||
+    cleanCombined.includes("lubrificant") ||
+    cleanCombined.includes("gasoleo") ||
+    cleanCombined.includes("gasolina") ||
+    cleanCombined.includes("combustivel")
+  ) {
+    return "121001 - Combustíveis e lubrificantes";
+  }
+  if (cleanCombined.includes("ajuda de custo") && cleanCombined.includes("fora")) {
+    return "112102 - Ajuda de custo fora do país para pessoal civil";
+  }
+  if (
+    cleanCombined.includes("ajuda de custo") ||
+    cleanCombined.includes("diaria") ||
+    cleanCombined.includes("subsidio de viagem")
+  ) {
+    return "112101 - Ajuda de custo dentro do país para pessoal civil";
+  }
+  if (
+    cleanCombined.includes("manutencao de bens imoveis") ||
+    cleanCombined.includes("reparacao de bens imoveis") ||
+    cleanCombined.includes("edificio") ||
+    cleanCombined.includes("obra")
+  ) {
+    return "121002 - Material para manutenção e reparação de bens imóveis";
+  }
+  if (
+    cleanCombined.includes("manutencao de bens moveis") ||
+    cleanCombined.includes("reparacao de bens moveis")
+  ) {
+    return "121003 - Material para manutenção e reparação de bens móveis";
+  }
+  if (
+    cleanCombined.includes("escritorio") ||
+    cleanCombined.includes("resma") ||
+    cleanCombined.includes("papel") ||
+    cleanCombined.includes("caneta") ||
+    cleanCombined.includes("pasta") ||
+    cleanCombined.includes("esferografica")
+  ) {
+    return "121005 - Material de consumo para escritório";
+  }
+  if (
+    cleanCombined.includes("duradouro de escritorio") ||
+    cleanCombined.includes("mesa") ||
+    cleanCombined.includes("cadeira") ||
+    cleanCombined.includes("armario")
+  ) {
+    return "121006 - Material duradouro de escritório";
+  }
+  if (
+    cleanCombined.includes("fardamento") ||
+    cleanCombined.includes("calcado") ||
+    cleanCombined.includes("vestuario") ||
+    cleanCombined.includes("uniforme")
+  ) {
+    return "121007 - Fardamentos e calçados";
+  }
+  if (
+    cleanCombined.includes("sobressalente") ||
+    cleanCombined.includes("peca") ||
+    cleanCombined.includes("motor")
+  ) {
+    return "121008 - Sobressalentes para equipamentos máquinas e motores";
+  }
+  if (
+    cleanCombined.includes("medicamento") ||
+    cleanCombined.includes("saude") ||
+    cleanCombined.includes("aposito") ||
+    cleanCombined.includes("farmacia")
+  ) {
+    return "121009 - Medicamentos e apósitos";
+  }
+  if (
+    cleanCombined.includes("generos alimenticios") ||
+    cleanCombined.includes("alimento") ||
+    cleanCombined.includes("lanche") ||
+    cleanCombined.includes("refeicao") ||
+    cleanCombined.includes("agua mineral") ||
+    cleanCombined.includes("catering")
+  ) {
+    return "121010 - Géneros alimentícios";
+  }
+  if (
+    cleanCombined.includes("limpeza") ||
+    cleanCombined.includes("higiene") ||
+    cleanCombined.includes("detergente") ||
+    cleanCombined.includes("sabao")
+  ) {
+    return "121011 - Material de limpeza e higiene";
+  }
+  if (cleanCombined.includes("ferramenta")) {
+    return "121014 - Ferramentas de uso duradouro";
+  }
+  if (
+    cleanCombined.includes("ensino") ||
+    cleanCombined.includes("formacao") ||
+    cleanCombined.includes("pedagogico") ||
+    cleanCombined.includes("modulo")
+  ) {
+    return "121015 - Material de consumo para ensino e formação";
+  }
+  if (
+    cleanCombined.includes("desporto") ||
+    cleanCombined.includes("esporte") ||
+    cleanCombined.includes("bola")
+  ) {
+    return "121018 - Material duradouro para desporto";
+  }
+  if (
+    cleanCombined.includes("consumo para informatica") ||
+    cleanCombined.includes("toner") ||
+    cleanCombined.includes("tinteiro") ||
+    cleanCombined.includes("cartucho")
+  ) {
+    return "121022 - Material de consumo para informática";
+  }
+  if (
+    cleanCombined.includes("computador") ||
+    cleanCombined.includes("laptop") ||
+    cleanCombined.includes("impressora") ||
+    cleanCombined.includes("servidor")
+  ) {
+    return "121023 - Material duradouro para informática";
+  }
+  if (cleanCombined.includes("software") || cleanCombined.includes("licenca")) {
+    return "121024 - Software de base";
+  }
+  if (
+    cleanCombined.includes("copa") ||
+    cleanCombined.includes("cozinha") ||
+    cleanCombined.includes("cha") ||
+    cleanCombined.includes("cafe")
+  ) {
+    return "121026 - Material de consumo para copa e cozinha";
+  }
+  if (
+    cleanCombined.includes("semente") ||
+    cleanCombined.includes("planta") ||
+    cleanCombined.includes("insumo") ||
+    cleanCombined.includes("adubo")
+  ) {
+    return "121028 - Sementes, plantas e insumos";
+  }
+  if (
+    cleanCombined.includes("comunicacao") ||
+    cleanCombined.includes("telefone") ||
+    cleanCombined.includes("internet") ||
+    cleanCombined.includes("credito") ||
+    cleanCombined.includes("recarga")
+  ) {
+    return "122001 - Comunicações em geral";
+  }
+  if (
+    cleanCombined.includes("passagem") ||
+    cleanCombined.includes("transporte") ||
+    cleanCombined.includes("viagem") ||
+    cleanCombined.includes("bilhete")
+  ) {
+    return "122002 - Passagens dentro do país";
+  }
+  if (
+    cleanCombined.includes("renda") ||
+    cleanCombined.includes("aluguel") ||
+    cleanCombined.includes("locacao")
+  ) {
+    return "122004 - Renda de instalações";
+  }
+  if (
+    cleanCombined.includes("reparacao de veiculo") ||
+    cleanCombined.includes("manutencao de veiculo") ||
+    cleanCombined.includes("oficina") ||
+    cleanCombined.includes("pneu")
+  ) {
+    return "122007 - Manutenção e reparação de veículos";
+  }
+  if (cleanCombined.includes("seguro")) {
+    return "122009 - Seguros";
+  }
+  if (cleanCombined.includes("agua")) {
+    return "122012 - Água";
+  }
+  if (
+    cleanCombined.includes("energia") ||
+    cleanCombined.includes("eletrica") ||
+    cleanCombined.includes("electrica") ||
+    cleanCombined.includes("credelec")
+  ) {
+    return "122013 - Energia eléctrica";
+  }
+  if (
+    cleanCombined.includes("servicos graficos") ||
+    cleanCombined.includes("impressao") ||
+    cleanCombined.includes("banner") ||
+    cleanCombined.includes("encadernacao")
+  ) {
+    return "122024 - Serviços gráficos";
+  }
+  if (cleanCombined.includes("comunidade")) {
+    return "143107 - Transferências a comunidade local";
+  }
+  if (cleanCombined.includes("bolsa")) {
+    return "143401 - Bolsa de estudos no país";
+  }
+  if (cleanCombined.includes("familia")) {
+    return "143499 - Outras transferências a famílias";
+  }
+  if (cleanCombined.includes("servico") || cleanCombined.includes("consultoria")) {
+    return "122099 - Outros serviços";
+  }
+  if (
+    cleanCombined.includes("bens") ||
+    cleanCombined.includes("material") ||
+    cleanCombined.includes("consumo")
+  ) {
+    return "121098 - Outros bens de consumo";
+  }
+
+  if (rubTrim) {
+    return rubTrim;
+  }
 
   return "121098 - Outros bens de consumo";
 }
@@ -371,6 +566,8 @@ export default function AcaoOrcamentalView({
   const totalOrcamentadoSetor = useMemo(() => {
     return sectorActivities.reduce((sum, act) => {
       let actVal = 0;
+      let hasRub = false;
+
       if (Array.isArray(act.rubricas) && act.rubricas.length > 0) {
         const rSum = act.rubricas.reduce(
           (acc: number, r: any) =>
@@ -378,19 +575,26 @@ export default function AcaoOrcamentalView({
           0
         );
         if (rSum > 0) {
-          actVal = rSum;
-        } else {
-          actVal = Number(
-            act.valor ||
-              act.orcamentoTotal ||
-              act.valorTotal ||
-              act.orcamento ||
-              act.custoTotal ||
-              0
-          );
+          actVal += rSum;
+          hasRub = true;
         }
-      } else {
-        actVal = Number(
+      }
+
+      const fuelLitros = Number(act.litrosGasoleo || act.quantidadeLitros || 0);
+      const fuelPrice = Number(act.precoLitro || act.precoLitroCombustivel || 0);
+      const fuelVal = Number(act.valorTotalGasoleo || 0) || (fuelLitros * fuelPrice);
+      const alreadyHasFuelInRubricas = Array.isArray(act.rubricas) && act.rubricas.some((r: any) => {
+        const str = String(r.rubrica || r.nomeRubrica || r.code || r.necessidade || "").toLowerCase();
+        return str.includes("121001") || str.includes("combust");
+      });
+
+      if (!alreadyHasFuelInRubricas && fuelVal > 0) {
+        actVal += fuelVal;
+        hasRub = true;
+      }
+
+      if (!hasRub) {
+        actVal += Number(
           act.valor ||
             act.orcamentoTotal ||
             act.valorTotal ||
@@ -416,6 +620,8 @@ export default function AcaoOrcamentalView({
             quantidadeTotal: number;
             valorTotalNecessidade: number;
             atividadesCount: number;
+            precoUnitario?: number;
+            especificacao?: string;
           };
         };
       };
@@ -424,10 +630,10 @@ export default function AcaoOrcamentalView({
     sectorActivities.forEach((act) => {
       let hasProcessedRubrica = false;
 
-      // 1. Array de rúbricas cadastrado
+      // 1. Array de rúbricas cadastrado (Apenas produtos/itens expressamente planificados no plano de atividade)
       if (Array.isArray(act.rubricas) && act.rubricas.length > 0) {
         act.rubricas.forEach((r: any) => {
-          const rubricaStr = (
+          const rawRub = (
             r.rubrica ||
             r.nomeRubrica ||
             r.code ||
@@ -444,11 +650,13 @@ export default function AcaoOrcamentalView({
             act.title ||
             "Necessidade Geral"
           ).trim();
-          const prodName = r.nomeProduto || r.especificacao || "";
+          const rubricaStr = getOfficialRubricaLabel(rawRub, necessidadeStr);
+          const prodName = String(r.nomeProduto || r.especificacao || r.produto || r.item || "").trim();
           const qty = Number(r.quantidade || r.qtd || 1);
           const val = Number(
             r.valorTotal || r.total || r.valor || r.precoTotal || r.custo || 0
           );
+          const pUnit = Number(r.precoUnitario || r.preco || (qty > 0 ? val / qty : 0));
 
           if (val > 0 || qty > 0) {
             hasProcessedRubrica = true;
@@ -461,7 +669,7 @@ export default function AcaoOrcamentalView({
             }
             rubricaMap[rubricaStr].totalValorRubrica += val;
 
-            const necKey = `${necessidadeStr}${prodName ? ` - ${prodName}` : ""}`;
+            const necKey = `${necessidadeStr}${prodName ? ` - [Produto: ${prodName}]` : ""}`;
             if (!rubricaMap[rubricaStr].necessidadesMap[necKey]) {
               rubricaMap[rubricaStr].necessidadesMap[necKey] = {
                 necessidadeName: necessidadeStr,
@@ -469,6 +677,8 @@ export default function AcaoOrcamentalView({
                 quantidadeTotal: 0,
                 valorTotalNecessidade: 0,
                 atividadesCount: 0,
+                precoUnitario: pUnit,
+                especificacao: r.especificacao || "",
               };
             }
             rubricaMap[rubricaStr].necessidadesMap[necKey].quantidadeTotal += qty;
@@ -478,46 +688,55 @@ export default function AcaoOrcamentalView({
         });
       }
 
-      // 2. Sub-campos de custos diretos na atividade se existirem
-      const subFields = [
-        { key: "valorTotalGasoleo", labelRubrica: "Combustíveis e Lubrificantes", labelNec: "Gasóleo / Combustível", qtyKey: "litrosGasoleo" },
-        { key: "ajudasCusto", labelRubrica: "Ajudas de Custo", labelNec: "Ajudas de Custo e Diárias", qtyKey: "diasAjudasCusto" },
-        { key: "passagensAereas", labelRubrica: "Passagens e Transporte", labelNec: "Passagens Aéreas / Deslocação", qtyKey: "qtdPassagens" },
-        { key: "materiaisConsumo", labelRubrica: "Bens de Consumo e Material de Escritório", labelNec: "Material de Escritório / Consumo", qtyKey: "qtdMateriais" },
-      ];
+      // 2. Combustível da atividade (Gasóleo, Gasolina, Petróleo)
+      const isTransport = act.necessitaTransporte === "Sim" || act.necessitaTransporte === true || act.transporte === "Sim";
+      const fuelLitros = Number(act.litrosGasoleo || act.quantidadeLitros || 0);
+      const fuelPrice = Number(act.precoLitro || act.precoLitroCombustivel || 0);
+      const fuelVal = Number(act.valorTotalGasoleo || 0) || (fuelLitros * fuelPrice);
+      const fuelType = String(act.tipoCombustivel || "Gasóleo").trim();
 
-      subFields.forEach((sf) => {
-        const val = Number(act[sf.key] || 0);
-        if (val > 0) {
-          hasProcessedRubrica = true;
-          const rubricaStr = sf.labelRubrica;
-          const necessidadeStr = `${sf.labelNec} (${act.designacao || act.title || "Atividade"})`;
-          const qty = Number(act[sf.qtyKey] || 1);
-
-          if (!rubricaMap[rubricaStr]) {
-            rubricaMap[rubricaStr] = {
-              rubricaName: rubricaStr,
-              totalValorRubrica: 0,
-              necessidadesMap: {},
-            };
-          }
-          rubricaMap[rubricaStr].totalValorRubrica += val;
-
-          if (!rubricaMap[rubricaStr].necessidadesMap[necessidadeStr]) {
-            rubricaMap[rubricaStr].necessidadesMap[necessidadeStr] = {
-              necessidadeName: necessidadeStr,
-              quantidadeTotal: 0,
-              valorTotalNecessidade: 0,
-              atividadesCount: 0,
-            };
-          }
-          rubricaMap[rubricaStr].necessidadesMap[necessidadeStr].quantidadeTotal += qty;
-          rubricaMap[rubricaStr].necessidadesMap[necessidadeStr].valorTotalNecessidade += val;
-          rubricaMap[rubricaStr].necessidadesMap[necessidadeStr].atividadesCount += 1;
-        }
+      const alreadyHasFuelInRubricas = Array.isArray(act.rubricas) && act.rubricas.some((r: any) => {
+        const str = String(r.rubrica || r.nomeRubrica || r.code || r.necessidade || "").toLowerCase();
+        return str.includes("121001") || str.includes("combust");
       });
 
-      // 3. Fallback para atividades que têm orçamento mas sem rubrica estruturada
+      if (!alreadyHasFuelInRubricas && (fuelVal > 0 || fuelLitros > 0)) {
+        hasProcessedRubrica = true;
+        const rubricaStr = "121001 - Combustíveis e lubrificantes";
+        const prodName = isTransport
+          ? `${fuelType} (Transporte)`
+          : `${fuelType} (Equipamento / Sem Transporte)`;
+        const necessidadeStr = isTransport
+          ? `Combustível para Deslocação/Transporte`
+          : `Combustível de Funcionamento (${fuelType})`;
+
+        if (!rubricaMap[rubricaStr]) {
+          rubricaMap[rubricaStr] = {
+            rubricaName: rubricaStr,
+            totalValorRubrica: 0,
+            necessidadesMap: {},
+          };
+        }
+        rubricaMap[rubricaStr].totalValorRubrica += fuelVal;
+
+        const necKey = `${necessidadeStr} [Produto: ${prodName}]`;
+        if (!rubricaMap[rubricaStr].necessidadesMap[necKey]) {
+          rubricaMap[rubricaStr].necessidadesMap[necKey] = {
+            necessidadeName: necessidadeStr,
+            nomeProduto: prodName,
+            quantidadeTotal: 0,
+            valorTotalNecessidade: 0,
+            atividadesCount: 0,
+            precoUnitario: fuelPrice,
+            especificacao: `${fuelLitros} L × ${fuelPrice} MZN/L (${fuelType})`,
+          };
+        }
+        rubricaMap[rubricaStr].necessidadesMap[necKey].quantidadeTotal += fuelLitros || 1;
+        rubricaMap[rubricaStr].necessidadesMap[necKey].valorTotalNecessidade += fuelVal;
+        rubricaMap[rubricaStr].necessidadesMap[necKey].atividadesCount += 1;
+      }
+
+      // 3. Fallback para atividades que têm orçamento planificado no plano de atividades mas sem array de rubricas detalhado
       if (!hasProcessedRubrica) {
         const val = Number(
           act.valor ||
@@ -528,7 +747,7 @@ export default function AcaoOrcamentalView({
             0
         );
         if (val > 0) {
-          const rubricaStr = (
+          const rawRub = (
             act.rubrica ||
             act.categoria ||
             "Despesas Gerais de Funcionamento"
@@ -539,6 +758,7 @@ export default function AcaoOrcamentalView({
             act.title ||
             "Atividade Planificada"
           ).trim();
+          const rubricaStr = getOfficialRubricaLabel(rawRub, necessidadeStr);
           const qty = Number(act.quantidade || act.qtd || 1);
 
           if (!rubricaMap[rubricaStr]) {
@@ -934,7 +1154,15 @@ export default function AcaoOrcamentalView({
         totalValor: number;
         itemsMap: Record<
           string,
-          { label: string; quant: number; valor: number; count: number }
+          {
+            label: string;
+            nomeProduto?: string;
+            quant: number;
+            valor: number;
+            precoUnitario?: number;
+            especificacao?: string;
+            count: number;
+          }
         >;
       }
     > = {};
@@ -970,8 +1198,10 @@ export default function AcaoOrcamentalView({
           const necStr = String(
             r.necessidade || r.descricao || r.nomeProduto || r.item || act.designacao || act.title || ""
           ).trim();
+          const prodName = String(r.nomeProduto || r.especificacao || r.produto || r.item || "").trim();
           const qty = Number(r.quantidade || r.qtd || 1);
           const val = Number(r.valorTotal || r.total || r.valor || r.precoTotal || 0);
+          const pUnit = Number(r.precoUnitario || r.preco || (qty > 0 ? val / qty : 0));
 
           if (val > 0 || qty > 0) {
             hasRubrica = true;
@@ -990,12 +1220,15 @@ export default function AcaoOrcamentalView({
             map[targetLabel].totalQuant += qty;
             map[targetLabel].totalValor += val;
 
-            const itemKey = necStr || act.designacao || act.title || "Item Planificado";
+            const itemKey = `${necStr}${prodName ? ` [Produto: ${prodName}]` : ""}`;
             if (!map[targetLabel].itemsMap[itemKey]) {
               map[targetLabel].itemsMap[itemKey] = {
-                label: itemKey,
+                label: necStr,
+                nomeProduto: prodName,
                 quant: 0,
                 valor: 0,
+                precoUnitario: pUnit,
+                especificacao: r.especificacao || "",
                 count: 0,
               };
             }
@@ -1004,6 +1237,58 @@ export default function AcaoOrcamentalView({
             map[targetLabel].itemsMap[itemKey].count += 1;
           }
         });
+      }
+
+      // Combustível da atividade (Gasóleo, Gasolina, Petróleo)
+      const isTransport = act.necessitaTransporte === "Sim" || act.necessitaTransporte === true || act.transporte === "Sim";
+      const fuelLitros = Number(act.litrosGasoleo || act.quantidadeLitros || 0);
+      const fuelPrice = Number(act.precoLitro || act.precoLitroCombustivel || 0);
+      const fuelVal = Number(act.valorTotalGasoleo || 0) || (fuelLitros * fuelPrice);
+      const fuelType = String(act.tipoCombustivel || "Gasóleo").trim();
+
+      const alreadyHasFuelInRubricas = Array.isArray(act.rubricas) && act.rubricas.some((r: any) => {
+        const str = String(r.rubrica || r.nomeRubrica || r.code || r.necessidade || "").toLowerCase();
+        return str.includes("121001") || str.includes("combust");
+      });
+
+      if (!alreadyHasFuelInRubricas && (fuelVal > 0 || fuelLitros > 0)) {
+        hasRubrica = true;
+        const targetLabel = "121001 - Combustíveis e lubrificantes";
+        const prodName = isTransport
+          ? `${fuelType} (Transporte)`
+          : `${fuelType} (Equipamento / Sem Transporte)`;
+        const necStr = isTransport
+          ? `Combustível para Deslocação/Transporte`
+          : `Combustível de Funcionamento (${fuelType})`;
+
+        if (!map[targetLabel]) {
+          map[targetLabel] = {
+            code: "121001",
+            label: targetLabel,
+            totalQuant: 0,
+            totalValor: 0,
+            itemsMap: {},
+          };
+        }
+
+        map[targetLabel].totalQuant += fuelLitros || 1;
+        map[targetLabel].totalValor += fuelVal;
+
+        const itemKey = `${necStr} [Produto: ${prodName}]`;
+        if (!map[targetLabel].itemsMap[itemKey]) {
+          map[targetLabel].itemsMap[itemKey] = {
+            label: necStr,
+            nomeProduto: prodName,
+            quant: 0,
+            valor: 0,
+            precoUnitario: fuelPrice,
+            especificacao: `${fuelLitros} L × ${fuelPrice} MZN/L (${fuelType})`,
+            count: 0,
+          };
+        }
+        map[targetLabel].itemsMap[itemKey].quant += fuelLitros || 1;
+        map[targetLabel].itemsMap[itemKey].valor += fuelVal;
+        map[targetLabel].itemsMap[itemKey].count += 1;
       }
 
       if (!hasRubrica) {
@@ -1045,7 +1330,9 @@ export default function AcaoOrcamentalView({
       }
     });
 
-    return Object.values(map).sort((a, b) => a.code.localeCompare(b.code));
+    return Object.values(map)
+      .filter((row) => !showOnlyNonZeroPivot || row.totalValor > 0 || row.totalQuant > 0)
+      .sort((a, b) => a.code.localeCompare(b.code));
   }, [sectorActivities]);
 
   const sistafeGrandTotals = useMemo(() => {
@@ -1241,9 +1528,6 @@ export default function AcaoOrcamentalView({
             0,
         );
       }
-      if (act.necessitaTransporte === "Sim") {
-        actVal += Number(act.litrosGasoleo || 0) * Number(act.precoLitro || 0);
-      }
       return sum + actVal;
     }, 0);
   }, [sectorActivities]);
@@ -1297,9 +1581,6 @@ export default function AcaoOrcamentalView({
             act.custoTotal ||
             0,
         );
-      }
-      if (act.necessitaTransporte === "Sim") {
-        valor += Number(act.litrosGasoleo || 0) * Number(act.precoLitro || 0);
       }
 
       const fonte = (act.orcamento || act.fonteFinanciamento || "OE").toUpperCase();
@@ -2058,12 +2339,31 @@ export default function AcaoOrcamentalView({
                             </td>
                           </tr>
 
-                          {/* Sub-itens Expandidos (Necessidades) */}
+                          {/* Sub-itens Expandidos (Necessidades & Produtos) */}
                           {isExpanded && hasItems &&
                             Object.values(row.itemsMap).map((item: any, iIdx) => (
                               <tr key={iIdx} className="border-b border-slate-100 bg-slate-50/70 text-slate-700">
                                 <td className="p-2.5 pl-9 border border-slate-200 font-medium text-slate-700">
-                                  └─ {item.label}
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-semibold text-slate-800">└─ {item.label}</span>
+                                      {item.nomeProduto && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">
+                                          📦 Produto: {item.nomeProduto}
+                                        </span>
+                                      )}
+                                      {item.quant > 0 && (
+                                        <span className="text-[10px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded">
+                                          Qtd/Litros: {item.quant}{item.precoUnitario ? ` × ${item.precoUnitario.toLocaleString("pt-MZ")} MT` : ""}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {item.especificacao && (
+                                      <div className="text-[10px] text-slate-500 italic pl-4 border-l-2 border-slate-200 font-normal">
+                                        Detalhes: {item.especificacao}
+                                      </div>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-2.5 text-right border border-slate-200 font-mono font-semibold text-slate-800">
                                   {item.valor.toLocaleString("pt-MZ", {
@@ -2156,10 +2456,13 @@ export default function AcaoOrcamentalView({
                       </tr>
                       {Object.values(row.itemsMap).map((item: any, iIdx) => (
                         <tr key={iIdx} className="border-b border-slate-200 text-slate-700 bg-white">
-                          <td className="p-1.5 pl-8 border border-slate-300 font-normal text-slate-700" style={{ letterSpacing: '0.5px' }}>
+                          <td className="p-1.5 pl-8 border border-slate-300 font-normal text-slate-700 text-[11px]" style={{ letterSpacing: '0.3px' }}>
                             └─ {item.label}
+                            {item.nomeProduto && ` [Produto: ${item.nomeProduto}]`}
+                            {item.quant > 0 && ` (${item.quant} un/L${item.precoUnitario ? ` × ${item.precoUnitario} MT` : ""})`}
+                            {item.especificacao && ` - ${item.especificacao}`}
                           </td>
-                          <td className="p-1.5 text-right border border-slate-300 font-mono text-slate-800" style={{ letterSpacing: '0.5px' }}>
+                          <td className="p-1.5 text-right border border-slate-300 font-mono text-slate-800 text-[11px]" style={{ letterSpacing: '0.3px' }}>
                             {item.valor.toLocaleString("pt-MZ", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,

@@ -32,6 +32,7 @@ import {
   RUBRICAS,
   NECESSIDADES,
   getNecessidadesOptions,
+  formatNecessidadeWithCode,
   PRODUTOS_POR_NECESSIDADE,
   FONTES_RECEITA,
   PRIORIDADES,
@@ -4008,9 +4009,8 @@ export default function ActivityForm({
                     if (val === "Anual") {
                       update.dataInicio = `${nextYear}-01-01`;
                       update.dataFim = `${nextYear}-12-31`;
-                      // Calcular dias do ano
-                      const isLeap = (year: number) => (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-                      update.totalDias = isLeap(nextYear) ? 366 : 365;
+                      // Calcular dias do ano - Ajustado para 12 dias conforme pedido (1 por mês)
+                      update.totalDias = 12;
                     }
                     
                     return { ...prev, ...update };
@@ -5499,6 +5499,12 @@ export default function ActivityForm({
                                 list={`past-products-${index}`}
                                 value={rubrica.nomeProduto || ""}
                                 disabled={isBlocked}
+                                onBlur={() => {
+                                  const currentRubrica = formData.rubricas[index];
+                                  if (currentRubrica.nomeProduto && currentRubrica.precoUnitario) {
+                                    collectProductFromRubric(currentRubrica);
+                                  }
+                                }}
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   const newRubricas = [...formData.rubricas];
@@ -5507,12 +5513,22 @@ export default function ActivityForm({
                                     nomeProduto: val,
                                   };
 
-                                  // Buscar no mercado moçambicano da necessidade selecionada
+                                  // Buscar no mercado e na base unificada
                                   const marketProds =
                                     PRODUTOS_POR_NECESSIDADE[
                                       getCleanNecessidadeKey(rubrica.necessidade)
                                     ] || [];
+                                  
+                                  const unifiedMatched = products.filter(p => 
+                                    (p.necessidade || "").toLowerCase() === rubrica.necessidade.toLowerCase() ||
+                                    formatNecessidadeWithCode(p.necessidade || "", p.rubrica).toLowerCase() === rubrica.necessidade.toLowerCase()
+                                  );
+
                                   const foundMarket = marketProds.find(
+                                    (p) =>
+                                      p.nome.toLowerCase() ===
+                                      val.toLowerCase(),
+                                  ) || unifiedMatched.find(
                                     (p) =>
                                       p.nome.toLowerCase() ===
                                       val.toLowerCase(),
@@ -5585,6 +5601,14 @@ export default function ActivityForm({
                                       getCleanNecessidadeKey(rubrica.necessidade)
                                     ] || []
                                   ).map((p) => p.nome);
+                                  
+                                  const unifiedNames = products
+                                    .filter(p => 
+                                      (p.necessidade || "").toLowerCase() === rubrica.necessidade.toLowerCase() ||
+                                      formatNecessidadeWithCode(p.necessidade || "", p.rubrica).toLowerCase() === rubrica.necessidade.toLowerCase()
+                                    )
+                                    .map(p => p.nome);
+
                                   const pastNames = plannedActivities
                                     .flatMap((a) => a.rubricas || [])
                                     .filter(
@@ -5594,7 +5618,7 @@ export default function ActivityForm({
                                     )
                                     .map((r: any) => r.nomeProduto);
                                   const allProducts = Array.from(
-                                    new Set([...marketNames, ...pastNames]),
+                                    new Set([...marketNames, ...unifiedNames, ...pastNames]),
                                   ).filter(Boolean);
                                   return allProducts.map((prod) => (
                                     <option key={prod} value={prod} />
@@ -5642,6 +5666,12 @@ export default function ActivityForm({
                                 type="number"
                                 value={rubrica.precoUnitario || ""}
                                 disabled={isBlocked}
+                                onBlur={() => {
+                                  const currentRubrica = formData.rubricas[index];
+                                  if (currentRubrica.nomeProduto && currentRubrica.precoUnitario) {
+                                    collectProductFromRubric(currentRubrica);
+                                  }
+                                }}
                                 onChange={(e) => {
                                   const newRubricas = [...formData.rubricas];
                                   const preco = Number(e.target.value);
@@ -5687,6 +5717,12 @@ export default function ActivityForm({
                               </label>
                               <select
                                 value={rubrica.detalhes || ""}
+                                onBlur={() => {
+                                  const currentRubrica = formData.rubricas[index];
+                                  if (currentRubrica.nomeProduto && currentRubrica.precoUnitario) {
+                                    collectProductFromRubric(currentRubrica);
+                                  }
+                                }}
                                 onChange={(e) => {
                                   const newRubricas = [...formData.rubricas];
                                   newRubricas[index] = {

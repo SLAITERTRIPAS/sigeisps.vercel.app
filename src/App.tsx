@@ -852,8 +852,22 @@ export default function App() {
 
     setShowSplash(true);
 
-    // Abrir o menu principal após o login para permitir navegação livre por todos os setores do sistema
-    setView("menu");
+    // Redirecionamento automático baseado na alocação do utilizador
+    const isAdmin = isSuperBossUser(userData);
+    if (isAdmin) {
+      // Administradores continuam a ir para o menu principal para gestão total
+      setView("menu");
+    } else {
+      // Utilizadores comuns são enviados diretamente para a sua área de afetação
+      const workspace = getUserWorkspace(userData);
+      if (workspace) {
+        setDashboardTitle(workspace);
+        setView("dashboard");
+      } else {
+        // Fallback caso não tenha área definida (não deve acontecer com dados integrados)
+        setView("menu");
+      }
+    }
   };
 
   const handleGlobalSync = async () => {
@@ -1386,7 +1400,7 @@ export default function App() {
                 user={extendedUser}
                 colaboradores={colaboradores}
                 onBack={goBack}
-                showBack={subMenuStack.length > 0 || view !== "menu"}
+                showBack={isSuperBossUser(extendedUser)}
                 onBreadcrumbClick={handleBreadcrumbClick}
                 onLogout={handleLogout}
                 onOpenMessages={() => {

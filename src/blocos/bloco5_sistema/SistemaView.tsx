@@ -49,12 +49,12 @@ import { isSuperBossUser } from "../../lib/auth";
 import { checkIsSystemAdmin } from "../../lib/utils";
 import { ProcessingCircle } from "../../components/ui/ProcessingCircle";
 import { FUNCIONARIOS } from "../../constants/formOptions";
+import GestaoProdutosPrecosView from "../bloco9_produtos_precos/GestaoProdutosPrecosView";
 import {
   DatabaseView,
   UserManagementView,
   RecentActivityLog,
   HistoricoChefiasView,
-  GestaoProdutosView,
 } from "../bloco5_sistema/SistemaSubViews";
 import { isProgrammerData, filterDeleted } from "../bloco5_sistema/systemUtils";
 import { EstruturaExplorer } from "../bloco5_sistema/EstruturaExplorer";
@@ -840,7 +840,7 @@ export default function SistemaView({
           />
         );
       case "Gestão de Produtos e Preços":
-        return <GestaoProdutosView />;
+        return <GestaoProdutosPrecosView />;
       case "Histórico de Chefias":
         return <HistoricoChefiasView />;
       case "Gestão de Utilizador":

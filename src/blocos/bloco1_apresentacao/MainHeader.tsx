@@ -368,7 +368,7 @@ export default function MainHeader({
         <div className="w-full px-2 sm:px-4 md:px-6 pb-1 pt-0.5 border-t border-white/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {showBack && onBack && (
+              {showBack && onBack && isSuperBossUser(user) && (
                 <button
                   onClick={(e) => {
                     e.preventDefault();

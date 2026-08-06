@@ -1240,7 +1240,7 @@ export function mergeColaboradores(firestoreData: any[]): any[] {
  * Returns the abbreviation of a department name for the activity plans.
  */
 export function getDepartmentAbbreviation(dept: string): string {
-  if (!dept) return "-";
+  if (!dept || typeof dept !== "string") return "-";
   const d = dept.trim().toLowerCase();
 
   // Specific mappings based on the ISPS structure
@@ -1318,7 +1318,7 @@ export function getDepartmentAbbreviation(dept: string): string {
 }
 
 export function getReparticaoAbbreviation(reparticao: string): string {
-  if (!reparticao) return "-";
+  if (!reparticao || typeof reparticao !== "string") return "-";
   const r = reparticao.trim().toLowerCase();
 
   // Specific mappings
@@ -1371,7 +1371,7 @@ export function getReparticaoAbbreviation(reparticao: string): string {
  * Retorna o nome abreviado (sigla) de uma Direção (unidade orgânica)
  */
 export function getDirectionAbbreviation(direcao: string): string {
-  if (!direcao) return "-";
+  if (!direcao || typeof direcao !== "string") return "-";
   const d = direcao.trim().toLowerCase();
 
   if (
@@ -1461,7 +1461,7 @@ export const checkIsSystemAdmin = (c: any): boolean => {
  * Retorna as 3 iniciais da atividade com base no nome
  */
 export function getActivityInitials(nome: string): string {
-  if (!nome) return "ACT";
+  if (!nome || typeof nome !== "string") return "ACT";
   const words = nome
     .trim()
     .split(/\s+/)

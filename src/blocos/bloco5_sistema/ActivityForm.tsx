@@ -2553,12 +2553,8 @@ export default function ActivityForm({
       let hasChanges = false;
       let currentRubricas = [...prev.rubricas];
 
-      // Auto-inject Fuel Rubrica if transport is needed (either necessitaTransporte === 'Sim' or viatura is selected)
-      const needsTransport =
-        prev.necessitaTransporte === "Sim" ||
-        (Boolean(prev.viatura) &&
-          prev.viatura.trim() !== "" &&
-          prev.viatura !== "Nenhuma");
+      // Auto-inject Fuel Rubrica ONLY if transport is needed (necessitaTransporte === 'Sim')
+      const needsTransport = prev.necessitaTransporte === "Sim";
 
       if (needsTransport) {
         const hasFuel = currentRubricas.some(
@@ -3435,8 +3431,8 @@ export default function ActivityForm({
                             <option disabled>Sem setores cadastrados</option>
                           );
                         }
-                        return finalSectors.map((s) => (
-                          <option key={s + "-" + Math.random()} value={s}>
+                        return finalSectors.map((s, idx) => (
+                          <option key={`${s}-${idx}`} value={s}>
                             {s}
                           </option>
                         ));
@@ -3449,6 +3445,9 @@ export default function ActivityForm({
           </div>
         );
       case 2:
+        const deptForStored = formData.departamento || formData.unidadeOrganica || currentSector || selectedCategory || "";
+        const deptStoredActs = getDepartmentStoredActivities(deptForStored);
+
         return (
           <div className="space-y-6">
             <h4 className="text-lg font-bold text-blue-900 border-b pb-2 tracking-tighter">
@@ -3461,13 +3460,11 @@ export default function ActivityForm({
                 </label>
                 <input
                   type="text"
-                  value={
-                    (
-                      formData.codigoAtividade ||
+                  value={String(
+                    formData.codigoAtividade ||
                       formData.numeroAtividade ||
                       ""
-                    ).toUpperCase()
-                  }
+                  ).toUpperCase()}
                   readOnly
                   className="w-full p-2.5 border rounded-xl text-sm outline-none bg-gray-50 text-gray-500 font-mono font-bold transition-all"
                 />
@@ -3553,9 +3550,7 @@ export default function ActivityForm({
                   onChange={(e) => {
                     const selectedId = e.target.value;
                     if (!selectedId) return;
-                    const deptName = formData.departamento || formData.unidadeOrganica || currentSector || selectedCategory;
-                    const deptActs = getDepartmentStoredActivities(deptName);
-                    const chosen = deptActs.find((a: any) => String(a.id || a.nomeAtividade) === String(selectedId));
+                    const chosen = deptStoredActs.find((a: any) => String(a?.id || a?.nomeAtividade) === String(selectedId));
                     if (chosen) {
                       setFormData((prev) => ({
                         ...prev,
@@ -3564,7 +3559,7 @@ export default function ActivityForm({
                         fonteReceita: chosen.fonteReceita || chosen.orcamento || prev.fonteReceita,
                         prioridade: chosen.prioridade || prev.prioridade,
                         responsavel: chosen.responsavel || prev.responsavel,
-                        rubricas: chosen.rubricas && chosen.rubricas.length > 0 ? chosen.rubricas : prev.rubricas,
+                        rubricas: chosen.rubricas && Array.isArray(chosen.rubricas) && chosen.rubricas.length > 0 ? chosen.rubricas : prev.rubricas,
                         realizacaoProvincia: chosen.realizacaoProvincia || prev.realizacaoProvincia,
                         realizacaoDistrito: chosen.realizacaoDistrito || prev.realizacaoDistrito,
                       }));
@@ -3573,11 +3568,18 @@ export default function ActivityForm({
                   defaultValue=""
                 >
                   <option value="">Selecione uma actividade armazenada do departamento para reutilizar...</option>
-                  {getDepartmentStoredActivities(formData.departamento || formData.unidadeOrganica || currentSector || selectedCategory).map((act: any, i: number) => (
-                    <option key={act.id || i} value={act.id || act.nomeAtividade}>
-                      {act.nomeAtividade || act.title} {act.mesRealizacao ? `(${act.mesRealizacao})` : ""} - {act.departamento || currentSector}
-                    </option>
-                  ))}
+                  {deptStoredActs.map((act: any, i: number) => {
+                    if (!act) return null;
+                    const actName = String(act.nomeAtividade || act.title || `Atividade ${i + 1}`);
+                    const actMes = act.mesRealizacao ? `(${act.mesRealizacao})` : "";
+                    const actDept = String(act.departamento || currentSector || "");
+                    const actVal = act.id || act.nomeAtividade || `act-${i}`;
+                    return (
+                      <option key={String(act.id || `${actName}-${i}`)} value={String(actVal)}>
+                        {actName} {actMes} - {actDept}
+                      </option>
+                    );
+                  })}
                 </select>
                 <p className="text-[11px] text-blue-700/80 mt-1.5 italic">
                   💡 Ao selecionar, o sistema aplica todos os dados e rubricas da actividade anterior, bastando ao utilizador atualizar o necessário para a nova planificação.
@@ -3595,7 +3597,7 @@ export default function ActivityForm({
                       if (!selectedActTitle) return;
                       handleActivityNameChange(selectedActTitle);
                       const actObj = sectorActivities.find(
-                        (a) => a.title === selectedActTitle,
+                        (a) => String(a?.title) === String(selectedActTitle),
                       );
                       if (actObj) {
                         const objectiveVal =
@@ -3606,7 +3608,7 @@ export default function ActivityForm({
                         setFormData((prev) => ({
                           ...prev,
                           nomeAtividade: selectedActTitle,
-                          objetivoAtividade: objectiveVal,
+                          objetivoAtividade: String(objectiveVal),
                         }));
                       }
                     }}
@@ -3617,10 +3619,10 @@ export default function ActivityForm({
                       -- Selecione uma atividade planificada do setor --
                     </option>
                     {Array.from(
-                      new Set(sectorActivities.map((a) => a.title)),
+                      new Set(sectorActivities.map((a) => String(a?.title || "")).filter(Boolean)),
                     ).map((title) => {
                       const act = sectorActivities.find(
-                        (a) => a.title === title,
+                        (a) => String(a?.title) === String(title),
                       );
                       const objText = act
                         ? act.objetivoActividade ||
@@ -3629,7 +3631,7 @@ export default function ActivityForm({
                           ""
                         : "";
                       const preview = objText
-                        ? ` - ${objText.substring(0, 60)}...`
+                        ? ` - ${String(objText).substring(0, 60)}...`
                         : "";
                       return (
                         <option key={title} value={title}>
@@ -3660,7 +3662,7 @@ export default function ActivityForm({
                         ? sectorActivities
                         : plannedActivities;
                     return Array.from(
-                      new Set(actsToUse.map((a) => a.title).filter(Boolean)),
+                      new Set((actsToUse || []).map((a) => String(a?.title || "")).filter(Boolean)),
                     ).map((title) => <option key={title} value={title} />);
                   })()}
                 </datalist>
@@ -3671,9 +3673,7 @@ export default function ActivityForm({
                 </label>
                 <textarea
                   rows={4}
-                  value={
-                    formData.objetivoAtividade || formData.objetivoAtividade
-                  }
+                  value={String(formData.objetivoAtividade || "")}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -4528,13 +4528,27 @@ export default function ActivityForm({
                     Necessidade de Transporte
                   </label>
                   <select
-                    value={formData.necessitaTransporte}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        necessitaTransporte: e.target.value,
-                      })
-                    }
+                    value={formData.necessitaTransporte || "Não"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "Não") {
+                        setFormData({
+                          ...formData,
+                          necessitaTransporte: "Não",
+                          litrosGasoleo: 0,
+                          valorTotalGasoleo: 0,
+                          viatura: "Nenhuma",
+                          kmsEstimados: 0,
+                          distanciaKm: 0,
+                          distanciaDestino: 0,
+                        });
+                      } else {
+                        setFormData({
+                          ...formData,
+                          necessitaTransporte: val,
+                        });
+                      }
+                    }}
                     className="w-full p-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                   >
                     <option value="Não">Não necessita</option>

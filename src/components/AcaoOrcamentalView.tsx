@@ -700,7 +700,7 @@ export default function AcaoOrcamentalView({
         return str.includes("121001") || str.includes("combust");
       });
 
-      if (!alreadyHasFuelInRubricas && (fuelVal > 0 || fuelLitros > 0)) {
+      if (!alreadyHasFuelInRubricas && isTransport && (fuelVal > 0 || fuelLitros > 0)) {
         hasProcessedRubrica = true;
         const rubricaStr = "121001 - Combustíveis e lubrificantes";
         const prodName = isTransport
@@ -1251,7 +1251,7 @@ export default function AcaoOrcamentalView({
         return str.includes("121001") || str.includes("combust");
       });
 
-      if (!alreadyHasFuelInRubricas && (fuelVal > 0 || fuelLitros > 0)) {
+      if (!alreadyHasFuelInRubricas && isTransport && (fuelVal > 0 || fuelLitros > 0)) {
         hasRubrica = true;
         const targetLabel = "121001 - Combustíveis e lubrificantes";
         const prodName = isTransport

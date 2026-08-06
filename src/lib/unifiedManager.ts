@@ -549,20 +549,34 @@ try {
 }
 
 export function getDepartmentStoredActivities(departmentName: string): any[] {
-  if (!departmentName) return [];
+  if (!departmentName || typeof departmentName !== "string") return [];
   const deptKey = departmentName.trim().toLowerCase();
 
   // 1. Procurar primeiro nas actividades sincronizadas do Firestore (Nuvem)
-  const cloudMatched = cachedFirestoreActivities.filter((act) => {
-    const actDept = act.departamento || act.unidadeOrganica || act.organicUnit || "";
+  const activities = Array.isArray(cachedFirestoreActivities) ? cachedFirestoreActivities : [];
+  const cloudMatched = activities.filter((act) => {
+    if (!act) return false;
+    const actDept = String(act.departamento || act.unidadeOrganica || act.organicUnit || act.unidadeSelecionada || "");
     return actDept.trim().toLowerCase() === deptKey;
   });
 
   if (cloudMatched.length > 0) {
     // Ordenar por data mais recente de atualização ou início
-    return cloudMatched.sort((a, b) => {
-      const dateA = a.updatedAt || a.dataInicio || "";
-      const dateB = b.updatedAt || b.dataInicio || "";
+    return [...cloudMatched].sort((a, b) => {
+      const getStr = (val: any) => {
+        if (!val) return "";
+        if (typeof val === "string") return val;
+        if (typeof val === "number") return String(val);
+        if (typeof val === "object" && val !== null) {
+          if (val.seconds) return String(val.seconds);
+          if (typeof val.toDate === "function") {
+            try { return val.toDate().toISOString(); } catch (e) { return ""; }
+          }
+        }
+        return String(val);
+      };
+      const dateA = getStr(a?.updatedAt || a?.dataInicio);
+      const dateB = getStr(b?.updatedAt || b?.dataInicio);
       return dateB.localeCompare(dateA);
     });
   }
@@ -571,7 +585,8 @@ export function getDepartmentStoredActivities(departmentName: string): any[] {
   try {
     const saved = localStorage.getItem(`sigep_dept_activities_${deptKey}`);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
     }
   } catch (e) {
     console.error("Error loading dept activities:", e);

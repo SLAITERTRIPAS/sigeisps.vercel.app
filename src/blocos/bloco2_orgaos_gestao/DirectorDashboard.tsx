@@ -1,0 +1,1442 @@
+import React, { useState } from "react";
+import {
+  ArrowLeft,
+  Maximize2,
+  LogOut,
+  User,
+  LayoutGrid,
+  FileText,
+  Calendar,
+  CheckSquare,
+  BarChart3,
+  Archive,
+  FolderOpen,
+  Users,
+  Plus,
+  GraduationCap,
+  Briefcase,
+  Microscope,
+  DollarSign,
+  Building2,
+  TrendingUp,
+  BarChart2,
+  Pen,
+  MessageSquare,
+  Car,
+  ClipboardList,
+  ShoppingCart,
+} from "lucide-react";
+
+import BoardOverview from "../bloco2_orgaos_gestao/BoardOverview";
+import CalendarView from "../bloco5_sistema/CalendarView";
+import AssignActivityView from "../bloco5_sistema/AssignActivityView";
+import MatrixView from "../bloco5_sistema/MatrixView";
+import { MatrixActivity } from "../../types";
+import MyMatrixView from "../bloco5_sistema/MyMatrixView";
+import ReportsView from "../bloco7_relatorios/ReportsView";
+import ActivityForm from "../bloco5_sistema/ActivityForm";
+import IndividualPlanForm from "../bloco8_gerais/IndividualPlanForm";
+import GestaoDocumentosView from "../bloco4_servicos_centrais/GestaoDocumentosView";
+import EstatisticaView from "../bloco7_relatorios/EstatisticaView";
+import DocumentosView from "../bloco6_documentos/DocumentosView";
+import LibraryManagementView from "../bloco3_unidades_organicas/LibraryManagementView";
+import GestaoPessoalView from "../bloco4_servicos_centrais/GestaoPessoalView";
+import GestaoSocialView from "../bloco4_servicos_centrais/GestaoSocialView";
+import {
+  Event,
+  Expediente,
+  LibraryRegistration,
+  BookRegistration,
+  Nota,
+  FinancialData,
+  Supplier,
+} from "../../types";
+import RecursosFinanceirosForm from "../bloco8_gerais/RecursosFinanceirosForm";
+import DRADashboard from "../bloco4_servicos_centrais/DRADashboard";
+import CentralOverview from "./CentralOverview";
+import GestaoFormacaoView from "../bloco4_servicos_centrais/GestaoFormacaoView";
+import ArchiveView from "../bloco5_sistema/ArchiveView";
+import GestaoAcademicaView from "../bloco3_unidades_organicas/GestaoAcademicaView";
+import GestaoAcademicaMainView from "../bloco3_unidades_organicas/GestaoAcademicaMainView";
+import { BookOpen } from "lucide-react";
+import {
+  getRoles,
+  isSuperBossUser,
+  isPatrimonioBossOrAdmin,
+  canAccessArea,
+  getAuthorizedActivities,
+} from "../../lib/auth";
+import { confirmWorkspaceExit } from "../../lib/utils";
+import UGEA_PlanView from "../bloco4_servicos_centrais/UGEA_PlanView";
+import UGEA_SupplierManagementView from "../bloco4_servicos_centrais/UGEA_SupplierManagementView";
+import UGEA_SupplierRegistrationForm from "../bloco4_servicos_centrais/UGEA_SupplierRegistrationForm";
+import AssinaturaDigitalView from "../bloco5_sistema/AssinaturaDigitalView";
+import CaixaMensagensView from "../bloco5_sistema/CaixaMensagensView";
+import BalancoMensalView from "../bloco4_servicos_centrais/BalancoMensalView";
+import BalancoCombustivelView from "../bloco4_servicos_centrais/BalancoCombustivelView";
+import BalancoInventarioView from "../bloco4_servicos_centrais/BalancoInventarioView";
+import BalancoActividadesView from "../bloco4_servicos_centrais/BalancoActividadesView";
+import GestaoTransporteView from "../bloco4_servicos_centrais/GestaoTransporteView";
+import PlanoWorkflowView from "../bloco5_sistema/PlanoWorkflowView";
+import AcaoOrcamentalView from "../../components/AcaoOrcamentalView";
+import { firestoreService } from "../../lib/firestoreService";
+import MainHeader from "../bloco1_apresentacao/MainHeader";
+import VisaoGeralCards from "../../components/VisaoGeralCards";
+import DICOSSEROverview from "./DICOSSEROverview";
+import RHStatView from "../bloco7_relatorios/RHStatisticsWorkflowView";
+import BolsasEstudosView from "../bloco4_servicos_centrais/BolsasEstudosView";
+import GestaoEstudantilView from "../bloco3_unidades_organicas/GestaoEstudantilView";
+
+export default function DirectorDashboard({
+  title = "Painel de Gestão",
+  onBack,
+  onShowAlert = () => {},
+  events = [],
+  onDeleteEvent,
+  onUpdateEvent,
+  expedientes = [],
+  onDeleteExpediente,
+  onUpdateExpediente,
+  libraryRegistrations = [],
+  bookRegistrations = [],
+  onDeleteBook,
+  onUpdateBook,
+  financialData = [],
+  setFinancialData,
+  notes = [],
+  onDeleteNote,
+  onUpdateNote,
+  onLogout = () => {},
+  onAgendar = () => {},
+  onNota = () => {},
+  onGestaoDocumentos,
+  activities = [],
+  onDeleteActivity,
+  matrixActivities = [],
+  onDeleteMatrixActivity,
+  onUpdateMatrixActivity,
+  suppliers = [],
+  colaboradores = [],
+  processos = [],
+  user = null,
+  onPathChange = () => {},
+  setDashboardTitle = () => {},
+  initialActiveItem,
+}: {
+  title: string;
+  onBack: () => void;
+  onShowAlert: (msg: string) => void;
+  events: Event[];
+  onDeleteEvent?: (id: string) => Promise<any>;
+  onUpdateEvent?: (id: string, data: any) => Promise<any>;
+  expedientes: Expediente[];
+  onDeleteExpediente?: (id: string) => Promise<any>;
+  onUpdateExpediente?: (id: string, data: any) => Promise<any>;
+  libraryRegistrations?: LibraryRegistration[];
+  bookRegistrations?: BookRegistration[];
+  onDeleteBook?: (id: string) => Promise<any>;
+  onUpdateBook?: (id: string, data: any) => Promise<any>;
+  financialData?: FinancialData[];
+  setFinancialData?: React.Dispatch<React.SetStateAction<FinancialData[]>>;
+  notes: Nota[];
+  onDeleteNote?: (id: string) => Promise<any>;
+  onUpdateNote?: (id: string, data: any) => Promise<any>;
+  onLogout: () => void;
+  onAgendar: () => void;
+  onNota: () => void;
+  onGestaoDocumentos?: () => void;
+  activities?: MatrixActivity[];
+  onDeleteActivity?: (id: string) => Promise<any>;
+  matrixActivities?: MatrixActivity[];
+  onDeleteMatrixActivity?: (id: string) => Promise<any>;
+  onUpdateMatrixActivity?: (id: string, data: any) => Promise<any>;
+  suppliers?: Supplier[];
+  colaboradores?: any[];
+  processos?: any[];
+  user?: any;
+  onPathChange?: (path: string[]) => void;
+  setDashboardTitle: (title: string) => void;
+  initialActiveItem?: string;
+}) {
+  const isReparticaoPessoal = title.toUpperCase() === "REPARTIÇÃO DE PESSOAL";
+  const isEstatisticaMain = title.toUpperCase() === "REPARTIÇÃO DE ESTATÍSTICA";
+  const isUGEA = title === "Unidade Gestora e Executora de Aquisições";
+
+  const isPatrimonioDept =
+    title.toUpperCase().includes("PATRIM") ||
+    title.toUpperCase().includes("TRANSPOR") ||
+    title.toUpperCase().includes("INFRAESTRUTURA") ||
+    title.toUpperCase().includes("DP") ||
+    title.toUpperCase().includes("ECONOMATO") ||
+    title.toUpperCase().includes("BALANÇO") ||
+    title.toUpperCase().includes("BALANCO") ||
+    isPatrimonioBossOrAdmin(user, colaboradores, processos);
+
+  const [activeItem, setActiveItem] = useState(
+    initialActiveItem ||
+      (title === "Balanço"
+        ? "Balanço"
+        : title === "Gestão de Frota"
+          ? "Gestão de Frota"
+          : title === "Gestão de Viatura"
+            ? "Gestão de Viatura"
+            : title.toUpperCase().includes("ARQUIVO")
+              ? "Repartição de Arquivo"
+              : title.toUpperCase().includes("BOLSA")
+                ? "Bolsa de Estudos"
+                : isEstatisticaMain
+                  ? "Corpo discente"
+                  : isUGEA
+                    ? "Plano"
+                    : "Visão Geral"),
+  );
+
+  React.useEffect(() => {
+    if (initialActiveItem) {
+      setActiveItem(initialActiveItem);
+    }
+  }, [initialActiveItem]);
+  const [viewHistory, setViewHistory] = useState<any[]>([]);
+  const [selectedPlanType, setSelectedPlanType] = useState<string | null>(null);
+  const [balancoType, setBalancoType] = useState<string | null>(null);
+  const [showActivityForm, setShowActivityForm] = useState(false);
+  const [movements, setMovements] = useState<any[]>([]);
+
+  const navigateTo = (newItem: string, resetSelectedPlan = true) => {
+    setViewHistory((prev) => [
+      ...prev,
+      { activeItem, selectedPlanType, showActivityForm },
+    ]);
+    setActiveItem(newItem);
+    if (resetSelectedPlan) {
+      setSelectedPlanType(null);
+      setShowActivityForm(false);
+    }
+  };
+
+  const handleExitWorkspace = (callback: () => void) => {
+    callback();
+  };
+
+  const selectPlan = (type: string) => {
+    setViewHistory((prev) => [
+      ...prev,
+      { activeItem, selectedPlanType, showActivityForm },
+    ]);
+    if (type === "Nova matriz") {
+      setShowActivityForm(true);
+    } else if (type === "Plano de Actividades") {
+      setSelectedPlanType("NOVA_ATIVIDADE");
+    } else {
+      setSelectedPlanType(type);
+    }
+  };
+
+  const handleBack = () => {
+    if (viewHistory.length > 0) {
+      const lastState = viewHistory[viewHistory.length - 1];
+      setViewHistory((prev) => prev.slice(0, -1));
+      setActiveItem(lastState.activeItem);
+      setDashboardTitle(lastState.activeItem);
+      setSelectedPlanType(lastState.selectedPlanType);
+      setShowActivityForm(lastState.showActivityForm);
+    } else {
+      handleExitWorkspace(onBack);
+    }
+  };
+
+  const isDepartment =
+    title.toUpperCase().includes("Departamento") ||
+    title.toUpperCase().includes("Divisão") ||
+    title.toUpperCase().includes("Unidade") ||
+    title.toUpperCase().includes("Secretaria") ||
+    title.toUpperCase().includes("Centro") ||
+    title.toUpperCase().includes("Repartição") ||
+    title.toUpperCase().includes("Setor") ||
+    title.toUpperCase().includes("GDG");
+
+  const nextYear = new Date().getFullYear() + 1;
+  const planLabel = isDepartment ? "Plano de Actividades" : "Matriz";
+
+  const hasExpediente = ["Secretaria Executiva", "Secretaria Geral"].includes(
+    title.toUpperCase(),
+  );
+
+  const estatisticaSectors = [
+    "PESSOAL",
+    "BOLSA DE ESTUDO",
+    "FORMAÇÃO",
+    "FORMACAO",
+    "DRA",
+    "REGISTO ACADÉMICO",
+    "REGISTO ACADEMICO",
+    "BIBLIOTECA",
+    "ARQUIVO",
+    "ALOJAMENTO",
+  ];
+  const hasEstatistica = estatisticaSectors.some((s) =>
+    title.toUpperCase().includes(s),
+  );
+
+  const isExcludedFromNewMenu =
+    title.toUpperCase().includes("Estatística") ||
+    title.toUpperCase().includes("Relatório") ||
+    title.toUpperCase().includes("Plano De Actividade");
+
+  const {
+    isDG,
+    isDC,
+    isDCC,
+    isCD,
+    isCR,
+    isConsRep,
+    isConsAdm,
+    isConsTec,
+    isDICOSAFA_Dept,
+    isGDG,
+  } = getRoles(title);
+  const isGestDoc =
+    title.toUpperCase() === "Gestão De Documentos" ||
+    (["Secretaria Executiva"].includes(title.toUpperCase()) &&
+      !isDICOSAFA_Dept);
+  const isSetor =
+    !isDG &&
+    !isDC &&
+    !isDCC &&
+    !isCD &&
+    !isCR &&
+    !isConsRep &&
+    !isConsAdm &&
+    !isConsTec &&
+    !isGestDoc &&
+    !isEstatisticaMain &&
+    !isGDG;
+
+  const canAssignActivity =
+    isDG ||
+    isDC ||
+    isCD ||
+    (isDICOSAFA_Dept && title.toUpperCase().includes("Departamento")) ||
+    title.toUpperCase() === "CHEFE DO DPEP";
+
+  const isDPEP =
+    title.toUpperCase().includes("DPEP") ||
+    title.toUpperCase() === "CHEFE DO DPEP" ||
+    title.toUpperCase().includes("PLANIFICAÇÃO, ESTUDOS E PROJETOS") ||
+    title.toUpperCase().includes("PLANIFICAÇÃO ESTUDOS E PROJETOS") ||
+    (user?.departamento || "").toUpperCase().includes("DPEP") ||
+    (user?.departamento || "")
+      .toUpperCase()
+      .includes("PLANIFICAÇÃO, ESTUDOS") ||
+    (user?.departamento || "").toUpperCase().includes("PLANIFICAÇÃO ESTUDOS");
+
+  const isDAF =
+    title.toUpperCase().includes("DAF") ||
+    title.toUpperCase() === "CHEFE DO DAF" ||
+    title.toUpperCase().includes("APOIO FINANCEIRO") ||
+    title.toUpperCase().includes("FINANÇAS") ||
+    (user?.departamento || "").toUpperCase().includes("DAF") ||
+    (user?.departamento || "").toUpperCase().includes("APOIO FINANCEIRO") ||
+    (user?.departamento || "").toUpperCase().includes("FINANÇAS");
+
+  const getMenuItems = () => {
+    // Standard baseline for all sectors according to requirement
+    const baseItems = [
+      { title: "Visão Geral", icon: LayoutGrid },
+      { title: "Plano", icon: FileText },
+      { title: "Ação Orçamental", icon: DollarSign },
+      { title: "Calendário", icon: Calendar },
+      { title: "Caixa de Mensagens", icon: MessageSquare },
+      { title: "Assinatura Digital", icon: Pen },
+      { title: "Documentos Normativos", icon: FileText },
+      { title: "Gestão de Expediente", icon: FolderOpen },
+      { title: "Relatórios", icon: BarChart3 },
+      { title: "Balanço", icon: TrendingUp },
+      { title: "Atribuir Actividade", icon: CheckSquare },
+    ];
+
+    if (isReparticaoPessoal) {
+      return [
+        ...baseItems,
+        { title: "Gestão de Pessoal", icon: Users },
+      ];
+    }
+
+    if (isEstatisticaMain) {
+      return [
+        ...baseItems,
+        { title: "Corpo discente", icon: GraduationCap },
+        { title: "Estatística da Repartição de Pessoal", icon: Users },
+        { title: "Recursos financeiro", icon: DollarSign },
+        { title: "Infraestruturas", icon: Building2 },
+        { title: "Previsão n+1", icon: TrendingUp },
+      ];
+    }
+
+    if (isUGEA) {
+      return [
+        ...baseItems,
+        { title: "Gestão de Fornecedores", icon: Users },
+        { title: "Plano de Aquisição", icon: FileText },
+        { title: "Plano de Contratação", icon: FileText },
+      ];
+    }
+
+    let items = [...baseItems];
+
+    // Role-specific additions (Only keeping non-department specific ones if absolutely necessary, but prompt says NO DIFFERENCES for departments)
+    // To strictly follow "nenhum departamento deve ser diferente desse", we will just use baseItems for typical departments.
+    
+    // However, some specific operational views might still need their specific tabs if they are not standard departments.
+    if (
+      title.toUpperCase().includes("TRANSPOR") ||
+      title.toUpperCase().includes("FROTA") ||
+      title.toUpperCase().includes("VIATURA")
+    ) {
+      items.push({ title: "Gestão de Frota", icon: Car });
+      items.push({ title: "Gestão de Viatura", icon: ClipboardList });
+    }
+
+    if (title.toUpperCase().includes("BOLSA")) {
+      items.unshift({ title: "Bolsa de Estudos", icon: GraduationCap });
+    }
+
+    if (title.toUpperCase().includes("ATENDIMENTO ESTUDANTIL")) {
+      items.push({ title: "Gestão Estudantil", icon: GraduationCap });
+    }
+
+    if (title.toUpperCase().includes("ARQUIVO")) {
+      items.splice(1, 0, { title: "Repartição de Arquivo", icon: Archive });
+    }
+
+    const upperTitle = title.toUpperCase();
+    const isCourseOrAcademic =
+      upperTitle.includes("CURSO") ||
+      upperTitle.includes("DEPARTAMENTO DE ENGENHARIA") ||
+      upperTitle.includes("DEPARTAMENTO DE PESQUISA") ||
+      upperTitle.includes("DEPARTAMENTO DE DISCIPLINAS GERAIS") ||
+      upperTitle.includes("DEE") ||
+      upperTitle.includes("DECC") ||
+      upperTitle.includes("DECM") ||
+      upperTitle.includes("DRA") ||
+      upperTitle.includes("ELETROTÉCNICA") ||
+      upperTitle.includes("ELETROTECNICA") ||
+      upperTitle.includes("CONSTRUÇÃO CIVIL") ||
+      upperTitle.includes("CONSTRUCO CIVIL") ||
+      upperTitle.includes("CONSTRUÇÃO MECÂNICA") ||
+      upperTitle.includes("CONSTRUCAO MECANICA");
+
+    if (isCourseOrAcademic) {
+      items.push({ title: "Gestão Académica", icon: Users });
+    }
+
+    return items;
+  };
+
+  const menuItems = getMenuItems();
+  const allMenuItems = menuItems; // Maybe this is what was intended?
+  console.log("allMenuItems:", allMenuItems);
+
+  const boards = [
+    "Conselho De Representantes",
+    "Conselho Administrativo E De Gestão",
+    "Conselho Técnico E De Qualidade",
+  ];
+
+  React.useEffect(() => {
+    const isPatrimonioDept =
+      title.toUpperCase().includes("PATRIM") ||
+      title.toUpperCase().includes("TRANSPOR") ||
+      title.toUpperCase().includes("INFRAESTRUTURA") ||
+      title.toUpperCase().includes("DP") ||
+      title.toUpperCase().includes("ECONOMATO") ||
+      title.toUpperCase().includes("BALANÇO") ||
+      title.toUpperCase().includes("BALANCO") ||
+      isPatrimonioBossOrAdmin(user, colaboradores, processos);
+
+    if (isPatrimonioDept) {
+      const unsub =
+        firestoreService.movimentos_economato.subscribe(setMovements);
+      return () => {
+        unsub();
+      };
+    }
+  }, [title, user, colaboradores, processos]);
+
+  React.useEffect(() => {
+    const path = [activeItem];
+    if (selectedPlanType && selectedPlanType !== "NOVA_ATIVIDADE")
+      path.push(selectedPlanType);
+    if (showActivityForm)
+      path.push(
+        activeItem === "Matriz" || activeItem === "Plano"
+          ? "Registo de Actividade"
+          : "Formulário",
+      );
+    onPathChange?.(path);
+  }, [activeItem, selectedPlanType, showActivityForm, onPathChange]);
+  const [individualActivities, setIndividualActivities] = useState<
+    MatrixActivity[]
+  >([]);
+  const [sectorActivities, setSectorActivities] = useState<MatrixActivity[]>(
+    [],
+  );
+  const [reparticaoActivities, setReparticaoActivities] = useState<
+    MatrixActivity[]
+  >([]);
+  const [departmentActivities, setDepartmentActivities] = useState<
+    MatrixActivity[]
+  >([]);
+  const [directionActivities, setDirectionActivities] = useState<
+    MatrixActivity[]
+  >([]);
+  const [institutionalActivities, setInstitutionalActivities] = useState<
+    MatrixActivity[]
+  >([]);
+
+  React.useEffect(() => {
+    if (!matrixActivities) return;
+
+    const isChefeDPEPUser =
+      title.toUpperCase().includes("DPEP") ||
+      title.toUpperCase() === "CHEFE DO DPEP" ||
+      (user?.departamento || "").toUpperCase().includes("DPEP");
+
+    // Individual plans
+    const ind = matrixActivities.filter(
+      (a) =>
+        a.orcamento === "Plano Individual" &&
+        canAccessArea(
+          user,
+          a.direcao || "",
+          a.departamento || "",
+          a.setor || "",
+        ),
+    );
+    setIndividualActivities(ind);
+
+    // Sectorial Plan (draft / setorial / setor) - visible only by the sector that planned it (or DPEP)
+    const sec = matrixActivities.filter((a) => {
+      const isSecStatus =
+        !a.status ||
+        (a.status as any) === "draft" ||
+        (a.status as any) === "setorial" ||
+        (a.status as any) === "setor";
+      if (!isSecStatus) return false;
+      return canAccessArea(
+        user,
+        a.direcao || "",
+        a.departamento || "",
+        a.setor || "",
+      );
+    });
+    setSectorActivities(sec);
+
+    // Repartição Plan (reparticao)
+    const rep = matrixActivities.filter((a) => {
+      const isRepStatus = (a.status as any) === "reparticao";
+      if (!isRepStatus) return false;
+      if (isChefeDPEPUser) return true;
+      return (
+        a.reparticao === title ||
+        (user?.departamento && a.departamento === user.departamento)
+      );
+    });
+    setReparticaoActivities(rep);
+
+    // Department Plan (departamento)
+    const deptVal = matrixActivities.filter((a) => {
+      const isDeptStatus = (a.status as any) === "departamento";
+      if (!isDeptStatus) return false;
+      if (isChefeDPEPUser) return true;
+      return (
+        (user?.departamento && a.departamento === user.departamento) ||
+        a.departamento === title ||
+        title.toUpperCase().includes("DEPARTAMENTO")
+      );
+    });
+    setDepartmentActivities(deptVal);
+
+    // Direction Plan (direcao)
+    const dirVal = matrixActivities.filter(
+      (a) => (a.status as any) === "direcao",
+    );
+    setDirectionActivities(dirVal);
+
+    // Institutional Plan (institucional/consolidated)
+    const inst = matrixActivities.filter(
+      (a) =>
+        (a.status as any) === "institucional" ||
+        (a.status as any) === "consolidated",
+    );
+    setInstitutionalActivities(inst);
+  }, [matrixActivities, title, user]);
+  const [publishedMatrices, setPublishedMatrices] = useState<any[]>([
+    {
+      id: "MAT-2027-001",
+      year: 2027,
+      publishedAt: "2026-04-02 11:15",
+      activityCount: 8,
+      status: "published",
+    },
+    {
+      id: "MAT-2026-005",
+      year: 2026,
+      activityCount: 12,
+      status: "shared",
+    },
+  ]);
+
+  const renderContent = () => {
+    if (
+      (activeItem === "Visão Geral" || activeItem === "Painel da UGEA") &&
+      isUGEA
+    ) {
+      const authorized = getAuthorizedActivities(matrixActivities || [], user);
+      const aquisicoes = authorized.filter(
+        (a) => a.necessitaAquisicao === "Sim",
+      );
+      const contratacoes = authorized.filter(
+        (a) => a.necessitaContratacao === "Sim",
+      );
+      const displayActivitiesCount = authorized.length;
+
+      const somaAquisicoes = aquisicoes.reduce(
+        (acc, a) => acc + (a.valor || 0),
+        0,
+      );
+      const somaContratacoes = contratacoes.reduce(
+        (acc, a) => acc + (a.valor || 0),
+        0,
+      );
+      const totalGeralUGEA = somaAquisicoes + somaContratacoes;
+
+      const ugeaColaboradores = (colaboradores || []).filter((c) => {
+        const s = String(
+          c.setor || c.reparticao || c.departamento || "",
+        ).toUpperCase();
+        return (
+          s.includes("UGEA") ||
+          s.includes("AQUISIÇÕES") ||
+          s.includes("AQUISICOES") ||
+          s.includes("DAF")
+        );
+      });
+
+      const finalColabs =
+        ugeaColaboradores.length > 0
+          ? ugeaColaboradores
+          : [
+              {
+                nome: "Albino Vilanculos",
+                cargo: "Chefe da UGEA",
+                email: "albino.v@gov.mz",
+                telefone: "841234567",
+              },
+              {
+                nome: "Sandra Tembe",
+                cargo: "Técnico de Aquisições",
+                email: "sandra.t@gov.mz",
+                telefone: "823456789",
+              },
+              {
+                nome: "Zacarias Mondlane",
+                cargo: "Assistente de Contratação",
+                email: "zacarias.m@gov.mz",
+                telefone: "857654321",
+              },
+            ];
+
+      return (
+        <div className="w-full space-y-8 pb-10">
+          {/* Cabeçalho do Painel da UGEA */}
+          <div className="bg-gradient-to-r from-[#0369a1] via-[#0284c7] to-[#0369a1] p-8 rounded-3xl text-white shadow-md relative overflow-hidden">
+            <div className="absolute right-0 top-0 opacity-10 transform translate-x-12 -translate-y-6 pointer-events-none">
+              <Building2 size={240} />
+            </div>
+
+            <div className="relative z-10 space-y-3">
+              <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Área de Administração e Finanças
+              </div>
+
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+                Unidade Gestora e Executora de Aquisições (UGEA)
+              </h1>
+
+              <p className="text-sky-100 max-w-2xl text-xs md:text-sm font-medium leading-relaxed">
+                Painel central de coordenação. Controle fornecedores,
+                orçamentos, aquisições e o efetivo alocado à UGEA de forma
+                simplificada e em tempo real.
+              </p>
+            </div>
+          </div>
+
+          {/* Seção 1: Fornecedores */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-l-4 border-sky-500 pl-3">
+              <h2 className="text-xs font-black tracking-widest text-slate-800 uppercase">
+                📂 Gestão de Fornecedores Licenciados
+              </h2>
+            </div>
+
+            <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-1 transition-all hover:border-sky-300 m-[2px]">
+              <div className="flex items-start gap-2 flex-1">
+                <div className="p-2 bg-sky-50 text-sky-600 rounded-xl">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Fidelização e Conformidade
+                  </h3>
+                  <p className="text-sm font-black text-slate-800 mt-1">
+                    {suppliers?.length || 0} Fornecedores Registados no Sistema
+                  </p>
+                  <p className="text-[11px] text-slate-500 leading-normal mt-0.5 max-w-xl">
+                    Lista ativa de parceiros comerciais homologados pela UGEA
+                    para prestação de serviços e fornecimento de consumíveis.
+                  </p>
+                  {suppliers && suppliers.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {suppliers.slice(0, 3).map((sup, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-lg border border-slate-200"
+                        >
+                          {sup.nome} ({sup.tipoServico || "Geral"})
+                        </span>
+                      ))}
+                      {suppliers.length > 3 && (
+                        <span className="text-[10px] font-bold bg-sky-50 text-sky-700 px-2 py-0.5 rounded-lg">
+                          +{suppliers.length - 3} mais
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end md:self-auto">
+                <button
+                  onClick={() => navigateTo("UGEA_SupplierForm")}
+                  className="bg-sky-50 text-sky-700 hover:bg-sky-100 px-4 py-2 rounded-xl text-xs font-black transition-all"
+                >
+                  Registar Fornecedor
+                </button>
+                <button
+                  onClick={() => navigateTo("Gestão de Fornecedores")}
+                  className="bg-sky-600 text-white hover:bg-sky-700 px-4 py-2 rounded-xl text-xs font-black shadow-sm transition-all"
+                >
+                  Gerir Lista
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Seção 2: Plano de Contratação */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-l-4 border-amber-500 pl-3">
+              <h2 className="text-xs font-black tracking-widest text-slate-800 uppercase">
+                📋 Planos de Contratação Pública
+              </h2>
+            </div>
+
+            <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2 transition-all hover:border-amber-300 m-[2px]">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Submissão e Processamento
+                  </h3>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <p className="text-sm font-black text-slate-800">
+                      {contratacoes.length} Atividades que Necessitam
+                      Contratação
+                    </p>
+                    <span className="text-xs font-extrabold text-amber-600">
+                      (
+                      {somaContratacoes.toLocaleString("pt-MZ", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      MZN)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-normal mt-0.5 max-w-xl">
+                    Controle de atividades que requerem publicação de concursos
+                    e assinatura de contratos públicos segundo as normas do
+                    Estado.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigateTo("Plano de Contratação")}
+                className="bg-amber-600 text-white hover:bg-amber-700 px-5 py-2.5 rounded-xl text-xs font-black shadow-sm transition-all self-end md:self-auto"
+              >
+                Ver Plano de Contratação
+              </button>
+            </div>
+          </div>
+
+          {/* Seção 3: Plano de Aquisição */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-l-4 border-emerald-500 pl-3">
+              <h2 className="text-xs font-black tracking-widest text-slate-800 uppercase">
+                🛒 Plano de Aquisição de Bens e Serviços
+              </h2>
+            </div>
+
+            <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2 transition-all hover:border-emerald-300 m-[2px]">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <ShoppingCart size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Aquisições Diretas e Cotações
+                  </h3>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <p className="text-sm font-black text-slate-800">
+                      {aquisicoes.length} Itens Autorizados no Plano de
+                      Aquisição
+                    </p>
+                    <span className="text-xs font-extrabold text-emerald-600">
+                      (
+                      {somaAquisicoes.toLocaleString("pt-MZ", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      MZN)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-normal mt-0.5 max-w-xl">
+                    Monitoramento dos consumíveis, equipamentos, combustíveis e
+                    despesas operacionais correntes sob a alçada da UGEA.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigateTo("Plano de Aquisição")}
+                className="bg-emerald-600 text-white hover:bg-emerald-700 px-5 py-2.5 rounded-xl text-xs font-black shadow-sm transition-all self-end md:self-auto"
+              >
+                Ver Plano de Aquisição
+              </button>
+            </div>
+          </div>
+
+          {/* Seção 4: Atividades Planificadas */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-l-4 border-indigo-500 pl-3">
+              <h2 className="text-xs font-black tracking-widest text-slate-800 uppercase">
+                📊 Atividades Planificadas do Setor
+              </h2>
+            </div>
+
+            <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2 transition-all hover:border-indigo-300 m-[2px]">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <CheckSquare size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Metas e Calendarização
+                  </h3>
+                  <p className="text-sm font-black text-slate-800 mt-1">
+                    {isSuperBossUser(user) &&
+                      `${displayActivitiesCount} Atividades Planificadas no Plano do Setor`}
+                  </p>
+                  <p className="text-[11px] text-slate-500 leading-normal mt-0.5 max-w-xl">
+                    Rastreie as metas operacionais e o cronograma de atividades
+                    estipulado para a equipa da UGEA no corrente ano fiscal.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigateTo("Plano")}
+                className="bg-indigo-600 text-white hover:bg-indigo-700 px-5 py-2.5 rounded-xl text-xs font-black shadow-sm transition-all self-end md:self-auto"
+              >
+                {isSuperBossUser(user) && "Aceder ao Plano do Setor"}
+              </button>
+            </div>
+          </div>
+
+          {/* Seção 5: Efetivo do Setor */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-l-4 border-slate-600 pl-3">
+              <h2 className="text-xs font-black tracking-widest text-slate-800 uppercase">
+                👥 Efetivo de Recursos Humanos do Setor
+              </h2>
+            </div>
+
+            <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2 transition-all hover:border-slate-400 m-[2px]">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="p-3 bg-slate-100 text-slate-600 rounded-xl">
+                  <User size={24} />
+                </div>
+                <div className="w-full">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Equipa de Serviço Ativo
+                  </h3>
+                  <p className="text-sm font-black text-slate-800 mt-1">
+                    {finalColabs.length} Colaboradores Alocados à UGEA
+                  </p>
+
+                  {/* Lista de Colaboradores de Forma Compacta e Organizada */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 w-full">
+                    {finalColabs.map((col, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl flex items-center gap-2.5"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-black text-slate-700 text-xs">
+                          {col.nome
+                            .split(" ")
+                            .map((n: any) => n[0])
+                            .join("")
+                            .substring(0, 2)
+                            .toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">
+                            {col.nome}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">
+                            {col.cargo || "Funcionário"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (isUGEA) {
+      if (activeItem === "Gestão de Fornecedores") {
+        return (
+          <UGEA_SupplierManagementView
+            onBack={handleBack}
+            onAddSupplier={() => navigateTo("UGEA_SupplierForm")}
+            suppliers={suppliers || []}
+          />
+        );
+      }
+      if (activeItem === "UGEA_SupplierForm") {
+        return (
+          <UGEA_SupplierRegistrationForm
+            onBack={handleBack}
+            onSubmit={async (data) => {
+              try {
+                await firestoreService.suppliers.add(data);
+                onShowAlert("Fornecedor registado com sucesso!");
+                handleBack();
+              } catch (error) {
+                console.error("Error adding supplier:", error);
+                onShowAlert("Erro ao registar fornecedor. Tente novamente.");
+              }
+            }}
+          />
+        );
+      }
+      if (activeItem === "Plano de Aquisição") {
+        return (
+          <UGEA_PlanView
+            type="Aquisicão"
+            activities={matrixActivities || []}
+            user={user}
+            onBack={handleBack}
+          />
+        );
+      }
+      if (activeItem === "Plano de Contratação") {
+        return (
+          <UGEA_PlanView
+            type="Contratação"
+            activities={matrixActivities || []}
+            user={user}
+            onBack={handleBack}
+          />
+        );
+      }
+    }
+
+    if (isEstatisticaMain) {
+      if (activeItem === "Estatística da Repartição de Pessoal") {
+        return <RHStatView title={title} />;
+      }
+      return (
+        <div className="relative w-full z-[100] flex flex-col overflow-y-auto">
+          <EstatisticaView
+            onBack={() => onBack()}
+            isReadOnly={false}
+            title={title}
+            hideSidebar={false}
+            initialActiveItem={activeItem}
+          />
+        </div>
+      );
+    }
+
+    if (
+      activeItem === "Repartição de Pessoal" ||
+      activeItem === "Gestão de Pessoal"
+    ) {
+      if (!canAccessArea(user, user.direcao, user.departamento, "Pessoal")) {
+        onShowAlert("Acesso não autorizado a esta área.");
+        return null;
+      }
+      return (
+        <GestaoPessoalView
+          onBack={() => handleExitWorkspace(() => setActiveItem("Visão Geral"))}
+          title={title}
+          user={user}
+          onLogout={onLogout}
+          initialColaboradores={colaboradores}
+          initialProcessos={processos}
+          hideSidebar={true}
+        />
+      );
+    }
+
+    if (
+      activeItem === "Repartição de Arquivo" ||
+      activeItem === "Arquivo Morto"
+    ) {
+      if (!canAccessArea(user, user.direcao, user.departamento, "Arquivo")) {
+        onShowAlert("Acesso não autorizado a esta área.");
+        return null;
+      }
+      return (
+        <ArchiveView
+          user={user}
+          onBack={() => handleExitWorkspace(() => setActiveItem("Visão Geral"))}
+          onShowAlert={onShowAlert}
+        />
+      );
+    }
+
+    if (activeItem === "Gestão de Formação") {
+      return (
+        <GestaoFormacaoView
+          onBack={() => handleExitWorkspace(() => setActiveItem("Visão Geral"))}
+        />
+      );
+    }
+
+    if (activeItem === "Gestão de Social") {
+      return (
+        <GestaoSocialView
+          onBack={() => handleExitWorkspace(() => setActiveItem("Visão Geral"))}
+        />
+      );
+    }
+
+    if (
+      activeItem === "Gestão de Documentos" ||
+      activeItem === "Gestão de Expediente" ||
+      (activeItem === "Gestão de Expedientes" && hasExpediente)
+    ) {
+      return (
+        <div className="w-full h-full">
+          <GestaoDocumentosView
+            onBack={() =>
+              handleExitWorkspace(() => setActiveItem("Visão geral"))
+            }
+            expedientes={expedientes}
+            onUpdateExpediente={(updated: any) =>
+              onUpdateExpediente?.(updated.id, updated)
+            }
+            onTrackingClick={() =>
+              onShowAlert("Funcionalidade de rastreio em desenvolvimento")
+            }
+            title={title}
+            hideHeader={true}
+          />
+        </div>
+      );
+    }
+
+    if (activeItem === "Calendário") {
+      return (
+        <CalendarView
+          events={events}
+          onAddEvent={(evt) => firestoreService.events.add(evt)}
+          onUpdateEvent={onUpdateEvent}
+          onDeleteEvent={onDeleteEvent}
+          onAgendar={onAgendar}
+          onNota={onNota}
+          title={title}
+          notes={notes}
+        />
+      );
+    }
+
+    if (activeItem === "Assinatura Digital") {
+      return <AssinaturaDigitalView onBack={handleBack} user={user} />;
+    }
+
+    if (activeItem === "Ação Orçamental") {
+      return (
+        <AcaoOrcamentalView
+          user={user}
+          title={title}
+          activities={matrixActivities || []}
+          onShowAlert={onShowAlert}
+        />
+      );
+    }
+
+    if (activeItem === "Caixa de Mensagens") {
+      return (
+        <CaixaMensagensView
+          departmentTitle={title}
+          user={user}
+          colaboradores={colaboradores}
+        />
+      );
+    }
+
+    if (activeItem === "Atribuir Actividade") {
+      return (
+        <AssignActivityView
+          directorTitle={title}
+          colaboradores={colaboradores}
+        />
+      );
+    }
+
+    if (
+      activeItem === "Matriz" ||
+      activeItem === "Plano" ||
+      activeItem === "Plano de Actividades" ||
+      activeItem === "Plano da Direção" ||
+      activeItem === "Meu Plano Individual" ||
+      activeItem === "Plano do Gabinete" ||
+      activeItem === "Plano Setorial"
+    ) {
+      return (
+        <PlanoWorkflowView
+          user={user}
+          title={title}
+          matrixActivities={matrixActivities || []}
+          onAddMatrixActivity={(data: any) =>
+            firestoreService.matrixActivities.add(data)
+          }
+          onUpdateMatrixActivity={(id: string, data: any) =>
+            firestoreService.matrixActivities.update(id, data)
+          }
+          onShowAlert={onShowAlert}
+          onBack={handleBack}
+        />
+      );
+    }
+
+    if (activeItem === "Minha Matriz") {
+      return <MyMatrixView onShowAlert={onShowAlert} />;
+    }
+
+    if (activeItem === "Meu Plano Individual") {
+      return (
+        <MatrixView
+          title="Meu Plano Individual"
+          isDepartment={isDepartment}
+          externalActivities={individualActivities}
+          setExternalActivities={setIndividualActivities}
+          onActivityAdded={(a) => firestoreService.matrixActivities.add(a)}
+          onUpdateActivity={onUpdateMatrixActivity}
+          onDeleteActivity={onDeleteMatrixActivity}
+        />
+      );
+    }
+
+    if (activeItem === "Gestão Académica") {
+      return (
+        <GestaoAcademicaMainView
+          title={title}
+          user={user}
+          onBack={() => setActiveItem("Visão Geral")}
+          onShowAlert={onShowAlert}
+        />
+      );
+    }
+
+    if (activeItem === "Gestão Estudantil") {
+      return (
+        <GestaoEstudantilView
+          user={user}
+          onBack={() => setActiveItem("Visão Geral")}
+          title="Gestão Estudantil"
+        />
+      );
+    }
+
+    if (
+      activeItem === "Gestão de Frota" ||
+      activeItem === "Gestão de Viatura"
+    ) {
+      return (
+        <div className="absolute inset-0 bg-white z-50 flex flex-col pt-4">
+          <GestaoTransporteView
+            user={user}
+            onBack={() => setActiveItem("Visão Geral")}
+            initialTab={
+              activeItem === "Gestão de Frota"
+                ? "gestao_frota"
+                : "gestao_viatura"
+            }
+          />
+        </div>
+      );
+    }
+
+    if (activeItem === "Relatórios") {
+      return (
+        <ReportsView
+          user={user}
+          onShowAlert={onShowAlert}
+          initialDirection={title}
+          onBack={() => setActiveItem("Visão Geral")}
+        />
+      );
+    }
+
+    if (activeItem === "Balanço") {
+      return (
+        <BalancoActividadesView
+          activities={activities || []}
+          user={user}
+          onBack={() => setActiveItem("Visão Geral")}
+          sectorTitle={title}
+        />
+      );
+    }
+
+    if (activeItem === "Documentos Normativos") {
+      return <DocumentosView title={title} user={user} />;
+    }
+
+    if (
+      activeItem === "Bolsa de Estudos" ||
+      (title.toUpperCase().includes("BOLSA") &&
+        (activeItem === "Visão Geral" || activeItem === "Bolsa de Estudos"))
+    ) {
+      return (
+        <BolsasEstudosView
+          title={title}
+          user={user}
+          viewMode={activeItem === "Visão Geral" ? "summary" : "form"}
+          onEstatistica={() => navigateTo("Estatística")}
+        />
+      );
+    }
+
+    if (activeItem === "Estatística") {
+      const titleUpper = title.toUpperCase();
+
+      // If it's the Finance Head, show the specific form
+      if (titleUpper.includes("FINANÇAS")) {
+        return (
+          <div className="absolute inset-0 bg-white z-50 flex flex-col pt-4">
+            <RecursosFinanceirosForm
+              onClose={() => setActiveItem("Visão Geral")}
+              onSubmit={async (data) => {
+                try {
+                  await firestoreService.financialData.add(data);
+                  if (setFinancialData) {
+                    setFinancialData((prev) => [...prev, data]);
+                  }
+                  onShowAlert(
+                    "Dados financeiros enviados com sucesso para a Repartição de Estatística!",
+                  );
+                  setActiveItem("Visão Geral");
+                } catch (error) {
+                  console.error("Error adding financial data:", error);
+                  onShowAlert(
+                    "Erro ao enviar dados financeiros. Tente novamente.",
+                  );
+                }
+              }}
+            />
+          </div>
+        );
+      }
+
+      let allowedCategories: string[] | null = null;
+      if (titleUpper.includes("PESSOAL"))
+        allowedCategories = [
+          "Corpo Docente",
+          "Corpo Técnico Administrativo",
+          "Investigadores",
+        ];
+      if (titleUpper.includes("BOLSA"))
+        allowedCategories = ["Estudantes Bolseiros"];
+      if (
+        titleUpper.includes("REGISTO ACADÉMICO") ||
+        titleUpper.includes("REGISTO ACADEMICO") ||
+        titleUpper.includes("DRA")
+      )
+        allowedCategories = ["Corpo discente (matrícula até graduação)"];
+      if (titleUpper.includes("ALOJAMENTO"))
+        allowedCategories = [
+          "Estudantes internados (por idade, província e gênero)",
+        ];
+      if (titleUpper.includes("BIBLIOTECA")) allowedCategories = ["Biblioteca"];
+      if (titleUpper.includes("ARQUIVO")) allowedCategories = ["Arquivo"];
+      if (titleUpper.includes("FORMAÇÃO") || titleUpper.includes("FORMACAO"))
+        allowedCategories = ["Formação"];
+      if (titleUpper.includes("REPARTIÇÃO DE ESTATÍSTICA")) {
+        allowedCategories = [
+          "Corpo Discente",
+          "Corpo Docente",
+          "CTA",
+          "Investigadores",
+          "Finanças",
+          "Previsão N+1",
+          "Infraestrutura",
+          "Biblioteca",
+          "Tic",
+        ];
+      }
+
+      return (
+        <div className="w-full h-full flex flex-col">
+          <EstatisticaView
+            onBack={() => setActiveItem("Visão Geral")}
+            isReadOnly={false}
+            allowedCategories={allowedCategories}
+            title={title}
+            financialData={financialData}
+            initialActiveItem={
+              title.toUpperCase().includes("BOLSA") ? "Bolsa" : undefined
+            }
+            hideHeader={true}
+            hideFooter={true}
+          />
+        </div>
+      );
+    }
+
+    if (
+      activeItem === "Gestão de Fornecedores" &&
+      title === "Unidade Gestora e Executora de Aquisições"
+    ) {
+      return (
+        <div className="absolute inset-0 bg-white z-50 flex flex-col">
+          <UGEA_SupplierManagementView
+            onBack={handleBack}
+            suppliers={suppliers || []}
+            onAddSupplier={() => navigateTo("SupplierRegistration")}
+          />
+        </div>
+      );
+    }
+
+    if (
+      activeItem === "SupplierRegistration" &&
+      title === "Unidade Gestora e Executora de Aquisições"
+    ) {
+      return (
+        <div className="absolute inset-0 bg-white z-50 flex flex-col">
+          <UGEA_SupplierRegistrationForm
+            onBack={handleBack}
+            onSubmit={(supplierData) => {
+              firestoreService.suppliers.add(supplierData);
+              onShowAlert("Fornecedor registado com sucesso!");
+              handleBack();
+            }}
+          />
+        </div>
+      );
+    }
+
+    if (activeItem === "Caixa de Mensagens") {
+      return (
+        <CaixaMensagensView
+          departmentTitle={title}
+          user={user}
+          colaboradores={colaboradores}
+        />
+      );
+    }
+
+    if (title.toUpperCase() === "Gestão De Biblioteca") {
+      return (
+        <LibraryManagementView
+          registrations={libraryRegistrations || []}
+          bookRegistrations={bookRegistrations || []}
+        />
+      );
+    }
+
+    if (activeItem === "Visão Geral") {
+      return (
+        <VisaoGeralCards onNavigate={navigateTo} user={user} title={title} />
+      );
+    }
+
+    return (
+      <div className="w-full max-w-4xl border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center text-gray-500">
+        <LayoutGrid size={48} className="mx-auto mb-4 opacity-50" />
+        <p>
+          Bem-vindo ao Gabinete do {title}. Selecione uma opção no menu lateral.
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex h-full bg-gray-50 flex-col md:flex-row overflow-hidden font-sans">
+      <div className="w-full md:w-64 bg-slate-900 text-white flex flex-row md:flex-col p-2 md:p-4 shadow-xl overflow-x-auto md:overflow-y-auto shrink-0 gap-2 md:gap-0 z-20 no-scrollbar">
+        <div className="flex-1 flex flex-row md:flex-col space-y-0 md:space-y-2 gap-2 md:gap-0 min-w-max md:min-w-0">
+          {menuItems.map((item) => (
+            <button
+              key={item.title}
+              onClick={() => navigateTo(item.title)}
+              title={item.title}
+              className={`w-auto md:w-full flex flex-none items-center gap-3 p-2 md:p-3 rounded-xl transition-colors text-left ${activeItem === item.title ? "bg-slate-800 text-white font-bold" : "hover:bg-slate-800 text-slate-300"}`}
+            >
+              <item.icon size={20} className="shrink-0" />
+              <span className="text-xs md:text-sm whitespace-nowrap md:whitespace-normal">{item.title}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={`flex-1 overflow-y-auto flex flex-col relative w-full h-full ${
+        activeItem === "Caixa de Mensagens" ||
+        activeItem === "Estatística" ||
+        activeItem === "Bolsa de Estudos"
+          ? "p-0"
+          : "p-4 md:p-8"
+      }`}>
+        {(activeItem === "Plano de Actividades" ||
+          activeItem === "Plano da Direção") &&
+          selectedPlanType &&
+          selectedPlanType !== "Plano Individual" && (
+            <button
+              onClick={handleBack}
+              className="mb-6 text-blue-600 font-black text-xs tracking-widest hover:underline flex items-center gap-2 self-start"
+            >
+              ← Voltar à seleção de plano
+            </button>
+          )}
+
+        {activeItem !== "Caixa de Mensagens" && activeItem !== "Estatística" && activeItem !== "Bolsa de Estudos" && (
+          <h2 className="text-2xl font-bold text-slate-800 mb-6 font-serif tracking-tight">
+            {title} - {activeItem}
+          </h2>
+        )}
+
+        <div className="flex-1 min-h-0 w-full flex flex-col">
+          {renderContent()}
+        </div>
+      </div>
+    </div>
+  );
+}

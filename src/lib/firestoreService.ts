@@ -30,6 +30,7 @@ import {
   withTimeout,
   cleanObject,
   getCircularReplacer,
+  safeJSONStringify,
   generateCollaboratorId,
   hasChefiaPosition,
   classifyTipo,
@@ -1603,7 +1604,7 @@ export const firestoreService = {
     try {
       localStorage.setItem(
         `sigep_session_${userId}`,
-        JSON.stringify(sessionData),
+        safeJSONStringify(sessionData),
       );
       localStorage.setItem("sigep_active_session_id", sessionId);
       if (userId) {

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Colaborador } from "../../types";
+import { safeJSONStringify } from "../../lib/utils";
 import MainHeader from "../bloco1_apresentacao/MainHeader";
 import RegistarFuncionarioForm from "../bloco8_gerais/RegistarFuncionarioForm";
 import { isSuperBossUser, getRoles } from "../../lib/auth";
@@ -380,7 +381,7 @@ export default function AfetacaoView({
     setCheckedIds(newChecked);
     localStorage.setItem(
       "afetacaoChecklist",
-      JSON.stringify(Array.from(newChecked)),
+      safeJSONStringify(Array.from(newChecked)),
     );
   };
 

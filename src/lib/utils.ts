@@ -54,15 +54,52 @@ export function toSentenceCase(text: string): string {
 export const getCircularReplacer = () => {
   const seen = new WeakSet();
   return (key: string, value: any) => {
+    if (typeof value === "bigint") {
+      return value.toString();
+    }
+    if (typeof value === "function" || typeof value === "symbol") {
+      return undefined;
+    }
     if (typeof value === "object" && value !== null) {
+      if (
+        (typeof Node !== "undefined" && value instanceof Node) ||
+        (typeof Window !== "undefined" && value instanceof Window) ||
+        (typeof Event !== "undefined" && value instanceof Event) ||
+        value.nodeType ||
+        value.$$typeof ||
+        value.nativeEvent
+      ) {
+        return undefined;
+      }
       if (seen.has(value)) {
-        return;
+        return undefined;
       }
       seen.add(value);
     }
     return value;
   };
 };
+
+export function safeJSONStringify(
+  obj: any,
+  replacer?: any,
+  space?: string | number,
+): string {
+  try {
+    const circReplacer = getCircularReplacer();
+    const combinedReplacer = (key: string, value: any) => {
+      const safeVal = circReplacer(key, value);
+      if (typeof replacer === "function") {
+        return replacer(key, safeVal);
+      }
+      return safeVal;
+    };
+    return JSON.stringify(obj, combinedReplacer, space);
+  } catch (err) {
+    console.warn("safeJSONStringify fallback:", err);
+    return "{}";
+  }
+}
 
 /**
  * Prompts the user for confirmation before leaving the workspace.
@@ -357,9 +394,21 @@ export function isMatch(input: string, compareTo: string): boolean {
 
 export function cleanObject(obj: any, keyName?: string, seen = new WeakSet()): any {
   if (obj === null || obj === undefined) return obj;
-  if (typeof obj === "function") return undefined;
+  if (typeof obj === "function" || typeof obj === "symbol") return undefined;
+  if (typeof obj === "bigint") return obj.toString();
 
   if (typeof obj === "object") {
+    if (
+      (typeof Node !== "undefined" && obj instanceof Node) ||
+      (typeof Window !== "undefined" && obj instanceof Window) ||
+      (typeof Event !== "undefined" && obj instanceof Event) ||
+      obj.nodeType ||
+      obj.$$typeof ||
+      obj.nativeEvent
+    ) {
+      return undefined;
+    }
+
     if (seen.has(obj)) return undefined;
     seen.add(obj);
 
@@ -385,6 +434,9 @@ export function cleanObject(obj: any, keyName?: string, seen = new WeakSet()): a
 
     const cleaned: any = {};
     Object.keys(obj).forEach((key) => {
+      if (key.startsWith("_react") || key.startsWith("__react") || key === "ownerDocument") {
+        return;
+      }
       const val = obj[key];
       if (val !== undefined && val !== null && typeof val !== "function") {
         const cleanedVal = cleanObject(val, key, seen);

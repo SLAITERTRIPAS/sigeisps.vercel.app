@@ -2435,8 +2435,10 @@ export default function PlanoWorkflowView({
                     : activeSubTab === "plano_departamento"
                       ? "departamento"
                       : activeSubTab === "plano_reparticao"
-                        ? "setorial"
-                        : selectedRoleMode.toLowerCase(),
+                    ? "reparticao"
+                    : selectedRoleMode === "Repartição"
+                      ? "reparticao"
+                      : selectedRoleMode.toLowerCase(),
               published: false,
               createdAt: new Date().toISOString(),
               unidadeOrganica: uOrg,
@@ -2647,7 +2649,9 @@ export default function PlanoWorkflowView({
             : activeSubTab === "plano_departamento"
               ? "departamento"
               : activeSubTab === "plano_reparticao"
-                ? "setorial"
+              ? "reparticao"
+              : selectedRoleMode === "Repartição"
+                ? "reparticao"
                 : "setorial", // Initial plan stage
       frequencia: "Mensal",
       unidadeOrganica: "ISPS",
@@ -7011,11 +7015,15 @@ export default function PlanoWorkflowView({
                           Math.random().toString(36).substr(2, 9),
                         status:
                           (data._forceNewRecord ? undefined : editingActivity?.status) ||
-                          (selectedRoleMode === "Departamento"
-                            ? "departamento"
+                          (selectedRoleMode === "Planificação"
+                            ? "planificacao"
                             : selectedRoleMode === "Direção"
                               ? "direcao"
-                              : "setorial"),
+                              : selectedRoleMode === "Departamento"
+                                ? "departamento"
+                                : selectedRoleMode === "Repartição"
+                                  ? "reparticao"
+                                  : "setorial"),
                         submetido: data._forceNewRecord ? false : (editingActivity?.submetido || false),
                         createdAt:
                           (data._forceNewRecord ? undefined : editingActivity?.createdAt) ||
@@ -7039,20 +7047,24 @@ export default function PlanoWorkflowView({
                             return data.codigoAtividade.toUpperCase();
                           if (!data._forceNewRecord && editingActivity?.referencia)
                             return editingActivity.referencia;
+                          
+                          const specificArea = 
+                            data.setor || 
+                            data.reparticao || 
+                            data.departamento || 
+                            data.direcao || 
+                            data.selectedCategory || 
+                            "ISPS";
 
-                          const department =
-                            data.selectedCategory ||
-                            data.direcao ||
-                            data.departamento ||
-                            "";
-                          const deptActivities = rawActivities.filter(
-                            (a: any) =>
-                              (a.direcao === department ||
-                                a.departamento === department) &&
-                              (a.ano || new Date().getFullYear()) ===
-                                selectedYear,
+                          const areaActivities = rawActivities.filter(
+                            (a: any) => {
+                              const actArea = `${a.direcao} ${a.departamento} ${a.reparticao} ${a.setor}`.toLowerCase();
+                              return actArea.includes(specificArea.toLowerCase()) && 
+                                (a.ano || new Date().getFullYear()) === selectedYear;
+                            }
                           );
-                          const maxNumber = deptActivities.reduce(
+
+                          const maxNumber = areaActivities.reduce(
                             (max: number, a: any) => {
                               const ref = String(a.referencia || "");
                               const match = ref.match(/\/DF\/P\/(\d+)$/);
@@ -7066,6 +7078,7 @@ export default function PlanoWorkflowView({
                             3,
                             "0",
                           );
+
                           const activityTitle =
                             data.nomeAtividade ||
                             data.title ||
@@ -7073,8 +7086,9 @@ export default function PlanoWorkflowView({
                           const initials = activityTitle
                             .substring(0, 4)
                             .toUpperCase();
-
-                          return `${department}/${initials}/DF/P/${nextNumber}`;
+                            
+                          const depAbbrev = specificArea.substring(0, 15).trim().toUpperCase();
+                          return `${depAbbrev}/${initials}/DF/P/${nextNumber}`;
                         })(),
                         title:
                           data.nomeAtividade || data.title || "Nova Atividade",

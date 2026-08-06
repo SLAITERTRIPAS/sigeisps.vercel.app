@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Key, CheckCircle2, AlertCircle } from "lucide-react";
 import { firestoreService } from "../../lib/firestoreService";
+import { safeJSONStringify } from "../../lib/utils";
 import {
   collection,
   query,
@@ -170,7 +171,7 @@ export default function ChangePasswordModal({
           });
           localStorage.setItem(
             "sigep_users_cache",
-            JSON.stringify(updatedCache),
+            safeJSONStringify(updatedCache),
           );
         } catch (e) {
           console.warn("Erro ao atualizar cache local de utilizadores:", e);
@@ -193,7 +194,7 @@ export default function ChangePasswordModal({
             };
             localStorage.setItem(
               "sigep_logged_in_user",
-              JSON.stringify(updatedUser),
+              safeJSONStringify(updatedUser),
             );
           }
         }

@@ -16,7 +16,7 @@ import html2pdf from "html2pdf.js";
 import { CURSOS } from "../../constants/formOptions";
 import { EFETIVO_GERAL_DATA } from "../../constants/colaboradoresList";
 import { firestoreService } from "../../lib/firestoreService";
-import { mergeColaboradores, formatEuropeanDate } from "../../lib/utils";
+import { mergeColaboradores, formatEuropeanDate, safeJSONStringify } from "../../lib/utils";
 import { usePersistentDraft } from "../../hooks/usePersistentDraft";
 import { DraftModal, SyncIndicator } from "../../components/ui/DraftMemoryUI";
 
@@ -893,7 +893,7 @@ export default function ServiceRequestForm({
           const res = await fetch("/api/verify-documents", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+            body: safeJSONStringify({
               motivo: formData.descricao,
               isBase64Images: filesToVerify,
             }),

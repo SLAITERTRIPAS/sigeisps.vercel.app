@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getCircularReplacer } from "../../lib/utils";
+import { getCircularReplacer, safeJSONStringify } from "../../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowLeft,
@@ -440,7 +440,7 @@ export default function SistemaView({
                     "pt-PT",
                   );
                 } else {
-                  newRow[key] = JSON.stringify(value);
+                  newRow[key] = safeJSONStringify(value);
                 }
               } else {
                 newRow[key] = value;

@@ -13,6 +13,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { safeJSONStringify } from "../../lib/utils";
 
 interface Correction {
   original: string;
@@ -169,7 +170,7 @@ export default function GrammarlySystemOverlay() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
+        body: safeJSONStringify({
           text: textValue,
           mode: selectedMode,
         }),

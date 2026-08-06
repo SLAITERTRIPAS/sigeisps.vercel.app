@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { getUserWorkspace } from "../../lib/auth";
 import {
   ChevronRight,
   ChevronLeft,
@@ -83,15 +84,20 @@ const getCleanNecessidadeKey = (nec: string): string => {
   return nec.replace(/^\d+\s*-\s*/, "").trim();
 };
 
-function calculateNextNum(acts: any[], currentDept?: string): number {
+function calculateNextNum(acts: any[], currentUserArea?: string): number {
   let maxNum = 0;
   if (acts && Array.isArray(acts)) {
     acts.forEach((act: any) => {
-      if (currentDept) {
+      if (currentUserArea) {
+        const actDir = String(act.direcao || "").trim().toLowerCase();
         const actDept = String(act.departamento || act.unidadeOrganica || "").trim().toLowerCase();
-        const curDept = String(currentDept).trim().toLowerCase();
-        if (actDept && curDept && actDept !== curDept) {
-          return;
+        const actRep = String(act.reparticao || "").trim().toLowerCase();
+        const actSetor = String(act.setor || act.sector || "").trim().toLowerCase();
+        const combinedActArea = `${actDir} ${actDept} ${actRep} ${actSetor}`;
+        
+        const curArea = String(currentUserArea).trim().toLowerCase();
+        if (!combinedActArea.includes(curArea)) {
+          return; // Skip this activity as it does not belong to the user's area
         }
       }
       const numStr = act.numeroAtividade || act.nAtividade || act.no;
@@ -243,7 +249,7 @@ export default function ActivityForm({
   };
 
   const [formData, setFormData] = useState(() => {
-    const nextNum = calculateNextNum(plannedActivitiesProp);
+    const nextNum = calculateNextNum(plannedActivitiesProp, user ? getUserWorkspace(user) : formData?.departamento);
     if (initialData) {
       return {
         unidadeCentral: initialData.unidadeCentral || "",
@@ -1300,7 +1306,7 @@ export default function ActivityForm({
 
     // Get numeric value from numeroAtividade and format with padStart(3, '0')
     const rawNum =
-      formData.numeroAtividade || String(calculateNextNum(plannedActivitiesProp, formData.departamento));
+      formData.numeroAtividade || String(calculateNextNum(plannedActivitiesProp, user ? getUserWorkspace(user) : formData.departamento));
     const parsedNum = parseInt(rawNum, 10);
     const num = isNaN(parsedNum) ? rawNum : String(parsedNum).padStart(3, "0");
 
@@ -2381,7 +2387,7 @@ export default function ActivityForm({
         }
 
         if (!formData.numeroAtividade) {
-          const nextNum = calculateNextNum(plannedActivitiesProp, formData.departamento);
+          const nextNum = calculateNextNum(plannedActivitiesProp, user ? getUserWorkspace(user) : formData.departamento);
           const numStr = String(nextNum).padStart(3, "0");
           setFormData((prev) => ({
             ...prev,
@@ -5969,6 +5975,55 @@ export default function ActivityForm({
                           </div>
                         </div>
                       )}
+                      
+                      {/* Common fields for all rubricas: Especificação and Detalhes */}
+                      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/30 p-5 rounded-2xl border border-blue-900/10">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-blue-900 tracking-tight leading-tight ml-2">
+                            Detalhes / Unidade da Necessidade
+                          </label>
+                          <input
+                            type="text"
+                            value={rubrica.detalhes || ""}
+                            disabled={isBlocked}
+                            onChange={(e) => {
+                              const newRubricas = [...formData.rubricas];
+                              newRubricas[index] = {
+                                ...rubrica,
+                                detalhes: e.target.value,
+                              };
+                              setFormData({
+                                ...formData,
+                                rubricas: newRubricas,
+                              });
+                            }}
+                            placeholder="Ex: Mês, Unidade, Caixa, Reunião, Deslocação..."
+                            className="w-full px-4 py-2.5 border border-blue-900/20 rounded-xl text-[13px] font-bold text-gray-700 outline-none focus:border-blue-900 transition-all shadow-sm bg-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-blue-900 tracking-tight leading-tight ml-2">
+                            Descrição / Especificação da Necessidade
+                          </label>
+                          <textarea
+                            value={rubrica.especificacao || ""}
+                            disabled={isBlocked}
+                            onChange={(e) => {
+                              const newRubricas = [...formData.rubricas];
+                              newRubricas[index] = {
+                                ...rubrica,
+                                especificacao: e.target.value,
+                              };
+                              setFormData({
+                                ...formData,
+                                rubricas: newRubricas,
+                              });
+                            }}
+                            placeholder="Descreva detalhadamente o serviço ou necessidade..."
+                            className="w-full p-4 border border-blue-900/20 rounded-xl text-[13px] font-bold text-gray-700 outline-none focus:border-blue-900 transition-all resize-none shadow-sm bg-white min-h-[50px] h-full"
+                          />
+                        </div>
+                      </div>
                     </div>
                     {formData.rubricas.length > 1 && !isCombustivel && (
                       <button
@@ -6528,68 +6583,63 @@ export default function ActivityForm({
                       ? formData.mesesRealizacao
                       : [formData.mesRealizacao || formData.mes || ""].filter(Boolean);
 
-                    const calculateIndependentActivityData = (m: string, originalFormData: any) => {
-                      const mDet = originalFormData.mesesDetalhes?.[m] || {};
-                      let mDays = 0;
-                      const dIni = mDet.dataInicio || "";
-                      const dFim = mDet.dataFim || "";
-                      if (dIni && dFim) {
-                        const d1 = new Date(dIni);
-                        const d2 = new Date(dFim);
-                        if (!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d1 <= d2) {
-                          mDays = Math.ceil(Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                        }
+                    const calculateTotalActivityData = (monthsArr: string[], originalFormData: any) => {
+                      let totalDays = 0;
+                      if (monthsArr.length === 0) {
+                        totalDays = originalFormData.totalDias || 1;
+                      } else {
+                        monthsArr.forEach(m => {
+                          const mDet = originalFormData.mesesDetalhes?.[m] || {};
+                          let mDays = 0;
+                          const dIni = mDet.dataInicio || "";
+                          const dFim = mDet.dataFim || "";
+                          if (dIni && dFim) {
+                            const d1 = new Date(dIni);
+                            const d2 = new Date(dFim);
+                            if (!isNaN(d1.getTime()) && !isNaN(d2.getTime()) && d1 <= d2) {
+                              mDays = Math.ceil(Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                            }
+                          }
+                          if (originalFormData.frequencia === "Anual") {
+                            mDays = 1;
+                          }
+                          totalDays += mDays;
+                        });
                       }
-                      if (originalFormData.frequencia === "Anual") {
-                        mDays = 1;
-                      } else if (mDays === 0) {
-                        mDays = originalFormData.totalDias || 1;
+                      if (totalDays === 0) {
+                        totalDays = originalFormData.totalDias || 1;
                       }
 
-                      // Recalculate rubrics for this specific month's days
-                      const mRubricas = (originalFormData.rubricas || []).map((rubrica: any) => {
+                      const totalRubricas = (originalFormData.rubricas || []).map((rubrica: any) => {
                         const isRubricaPessoal =
-                          rubrica.rubrica?.toLowerCase().includes("pessoal") ||
-                          rubrica.rubrica?.includes("112");
-                        const isDiretor =
-                          rubrica.necessidade?.toLowerCase().includes("diretor") ||
-                          rubrica.necessidade?.toLowerCase().includes("direto ger") ||
-                          rubrica.necessidade?.includes("(DG)") ||
-                          rubrica.necessidade?.toLowerCase().includes("(dg)");
-                        const isCivil =
-                          rubrica.necessidade?.toLowerCase().includes("civil") ||
-                          rubrica.necessidade?.toLowerCase().includes("técnico");
-                        const isDentro = rubrica.necessidade?.toLowerCase().includes("dentro");
-                        const isFora = rubrica.necessidade?.toLowerCase().includes("fora");
-
+                          rubrica.rubrica === "Ajudas de Custo" ||
+                          rubrica.rubrica === "Despesas de Deslocação" ||
+                          rubrica.rubrica === "Ajudas de Custo por Transferência";
                         const isAjudaCustoDiretorDentro =
                           isRubricaPessoal &&
-                          isDentro &&
-                          isDiretor &&
-                          !rubrica.necessidade?.toLowerCase().includes("motorista") &&
-                          !rubrica.necessidade?.toLowerCase().includes("ida e volta");
-                        const isAjudaCustoDiretorFora = isRubricaPessoal && isFora && isDiretor;
+                          (rubrica.necessidade?.toLowerCase().includes("diretor") ||
+                            rubrica.necessidade?.toLowerCase().includes("coordenador")) &&
+                          rubrica.necessidade?.toLowerCase().includes("dentro");
+                        const isAjudaCustoDiretorFora =
+                          isRubricaPessoal &&
+                          (rubrica.necessidade?.toLowerCase().includes("diretor") ||
+                            rubrica.necessidade?.toLowerCase().includes("coordenador")) &&
+                          rubrica.necessidade?.toLowerCase().includes("fora");
                         const isAjudaCustoCivilDentro =
                           isRubricaPessoal &&
-                          isDentro &&
-                          isCivil &&
-                          !rubrica.necessidade?.toLowerCase().includes("motorista") &&
-                          !isDiretor &&
-                          !rubrica.necessidade?.toLowerCase().includes("ida e volta");
+                          rubrica.necessidade?.toLowerCase().includes("civil") &&
+                          rubrica.necessidade?.toLowerCase().includes("dentro");
                         const isAjudaCustoCivilFora =
                           isRubricaPessoal &&
-                          isFora &&
-                          isCivil &&
-                          !rubrica.necessidade?.toLowerCase().includes("motorista");
-
+                          rubrica.necessidade?.toLowerCase().includes("civil") &&
+                          rubrica.necessidade?.toLowerCase().includes("fora");
                         const isIdaVoltaGeral =
-                          rubrica.necessidade?.toLowerCase().includes("ida e volta") &&
-                          !rubrica.necessidade?.toLowerCase().includes("motorista");
+                          isRubricaPessoal &&
+                          rubrica.necessidade?.toLowerCase().includes("ida e volta");
                         const isAjudaCustoMotoristaIdaVolta =
-                          (rubrica.necessidade?.toLowerCase().includes("motorista") &&
-                            rubrica.necessidade?.toLowerCase().includes("ida e volta")) ||
-                          rubrica.necessidade ===
-                            "Ajudas de custo para Motorista (ida e volta)";
+                          isRubricaPessoal &&
+                          rubrica.necessidade?.toLowerCase().includes("motorista") &&
+                          rubrica.necessidade?.toLowerCase().includes("ida e volta");
                         const isAjudaCustoMotorista =
                           isRubricaPessoal &&
                           rubrica.necessidade?.toLowerCase().includes("motorista") &&
@@ -6599,24 +6649,21 @@ export default function ActivityForm({
                         if (isAjudaCustoDiretorDentro) {
                           const precoUnitario = 9000;
                           const qtd = rubrica.quantidade || 0;
-                          const valorTotal = qtd * mDays * precoUnitario + 0.3 * precoUnitario * qtd;
+                          const valorTotal = qtd * totalDays * precoUnitario + 0.3 * precoUnitario * qtd;
                           return { ...rubrica, precoUnitario, valorTotal };
                         }
-
                         if (isAjudaCustoDiretorFora || isAjudaCustoCivilFora) {
                           const precoUnitario = rubrica.precoUnitario || 0;
                           const qtd = rubrica.quantidade || 0;
-                          const valorTotal = qtd * mDays * precoUnitario + 0.3 * precoUnitario * qtd;
+                          const valorTotal = qtd * totalDays * precoUnitario + 0.3 * precoUnitario * qtd;
                           return { ...rubrica, valorTotal };
                         }
-
                         if (isAjudaCustoCivilDentro) {
                           const precoUnitario = 6000;
                           const qtd = rubrica.quantidade || 0;
-                          const valorTotal = qtd * mDays * precoUnitario + 0.3 * precoUnitario * qtd;
+                          const valorTotal = qtd * totalDays * precoUnitario + 0.3 * precoUnitario * qtd;
                           return { ...rubrica, precoUnitario, valorTotal };
                         }
-
                         if (isIdaVoltaGeral) {
                           const precoUnitario = 1800;
                           const qtd = rubrica.quantidade || 1;
@@ -6624,7 +6671,6 @@ export default function ActivityForm({
                           const valorTotal = qtd * d * precoUnitario;
                           return { ...rubrica, precoUnitario, quantidade: qtd, valorTotal };
                         }
-
                         if (isAjudaCustoMotoristaIdaVolta) {
                           const precoUnitario = 1800;
                           const qtd = 1;
@@ -6632,36 +6678,31 @@ export default function ActivityForm({
                           const valorTotal = qtd * d * precoUnitario;
                           return { ...rubrica, precoUnitario, quantidade: qtd, valorTotal };
                         }
-
                         if (isAjudaCustoMotorista) {
                           const precoUnitario = 1800;
                           const qtd = 1;
-                          const valorTotal = qtd * mDays * precoUnitario + 0.3 * precoUnitario * qtd;
+                          const valorTotal = qtd * totalDays * precoUnitario + 0.3 * precoUnitario * qtd;
                           return { ...rubrica, precoUnitario, quantidade: qtd, valorTotal };
                         }
-
                         if (isRubricaPessoal) {
                           const precoUnitario = rubrica.precoUnitario || 0;
                           const qtd = rubrica.quantidade || 1;
-                          const valorTotal = qtd * mDays * precoUnitario + 0.3 * precoUnitario * qtd;
+                          const valorTotal = qtd * totalDays * precoUnitario + 0.3 * precoUnitario * qtd;
                           return { ...rubrica, valorTotal };
                         }
-
                         return rubrica;
                       });
 
-                      const mOrcamento = mRubricas.reduce(
+                      const totalOrcamento = totalRubricas.reduce(
                         (acc: number, r: any) => acc + (r.valorTotal || 0),
                         0,
                       );
 
                       return {
-                        totalDias: mDays,
-                        rubricas: mRubricas,
-                        orcamento: mOrcamento,
-                        valor: mOrcamento,
-                        dataInicio: dIni,
-                        dataFim: dFim,
+                        totalDias: totalDays,
+                        rubricas: totalRubricas,
+                        orcamento: totalOrcamento,
+                        valor: totalOrcamento,
                       };
                     };
 
@@ -6675,95 +6716,34 @@ export default function ActivityForm({
                       }
                     };
 
-                    if (months.length > 1) {
-                      // Multi-month activity splitting: each month is a separate activity with the same budget/details
-                      console.log("ActivityForm: splitting activity into multiple months:", months);
+                    const submissionData = {
+                      ...formData,
+                      ...calculateTotalActivityData(months, formData),
+                      title: formData.nomeAtividade,
+                      nAtividade: formData.numeroAtividade,
+                      selectedCategory,
+                      ano: nextYear,
+                      mesesRealizacao: months,
+                      mesRealizacao: months[0] || formData.mesRealizacao || formData.mes || "",
+                    };
 
-                      // First month (keeps original ID if editing)
-                      const firstMonthData = {
-                        ...formData,
-                        ...calculateIndependentActivityData(months[0], formData),
-                        mesesRealizacao: [months[0]],
-                        mesRealizacao: months[0],
-                        mesExecucao: months[0],
-                        dataMes: months[0],
-                        mes: months[0],
-                        title: formData.nomeAtividade,
-                        nAtividade: formData.numeroAtividade,
-                        selectedCategory,
-                        ano: nextYear,
-                      };
+                    persistDepartmentAndProducts(submissionData);
+                    const submissionPromise = onSubmit(submissionData);
 
-                      persistDepartmentAndProducts(firstMonthData);
-                      const p1 = onSubmit(firstMonthData);
-                      await Promise.race([
-                        p1,
-                        new Promise((_, reject) =>
-                          setTimeout(
-                            () => reject(new Error("A submissão do primeiro mês falhou por limite de tempo.")),
-                            20000,
-                          ),
-                        ),
-                      ]);
-
-                      // Other months (forced new separate records)
-                      for (let i = 1; i < months.length; i++) {
-                        const otherMonthData = {
-                          ...formData,
-                          ...calculateIndependentActivityData(months[i], formData),
-                          id: undefined,
-                          _forceNewRecord: true,
-                          mesesRealizacao: [months[i]],
-                          mesRealizacao: months[i],
-                          mesExecucao: months[i],
-                          dataMes: months[i],
-                          mes: months[i],
-                          title: formData.nomeAtividade,
-                          nAtividade: formData.numeroAtividade,
-                          selectedCategory,
-                          ano: nextYear,
-                        };
-                        persistDepartmentAndProducts(otherMonthData);
-                        const pOther = onSubmit(otherMonthData);
-                        await Promise.race([
-                          pOther,
-                          new Promise((_, reject) =>
-                            setTimeout(
-                              () => reject(new Error(`A submissão do mês ${months[i]} falhou por limite de tempo.`)),
-                              20000,
-                            ),
-                          ),
-                        ]);
-                      }
-                    } else {
-                      // Standard single month or empty month
-                      const submissionData = {
-                        ...formData,
-                        ...calculateIndependentActivityData(months[0] || formData.mesRealizacao || formData.mes || "", formData),
-                        title: formData.nomeAtividade,
-                        nAtividade: formData.numeroAtividade,
-                        selectedCategory,
-                        ano: nextYear,
-                      };
-
-                      persistDepartmentAndProducts(submissionData);
-                      const submissionPromise = onSubmit(submissionData);
-
-                      await Promise.race([
-                        submissionPromise,
-                        new Promise((_, reject) =>
-                          setTimeout(
-                            () =>
-                              reject(
-                                new Error(
-                                  "A submissão está a demorar mais do que o esperado. Verifique a sua ligação à internet.",
-                                ),
+                    await Promise.race([
+                      submissionPromise,
+                      new Promise((_, reject) =>
+                        setTimeout(
+                          () =>
+                            reject(
+                              new Error(
+                                "A submissão está a demorar mais do que o esperado. Verifique a sua ligação à internet.",
                               ),
-                            25000,
-                          ),
+                            ),
+                          25000,
                         ),
-                      ]);
-                    }
+                      ),
+                    ]);
 
                     console.log("Submissão concluída com sucesso.");
                     onClose(); // Fechar o formulário após sucesso

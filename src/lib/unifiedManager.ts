@@ -1,5 +1,6 @@
 import { PRODUTOS_POR_NECESSIDADE, ProdutoMercado } from "../constants/formOptions";
 import { firestoreService } from "./firestoreService";
+import { safeJSONStringify } from "./utils";
 
 export interface UnifiedProduct extends ProdutoMercado {
   id?: string;
@@ -143,13 +144,13 @@ export function deleteUnifiedProduct(nome: string) {
     
     const deleted = getDeletedProductKeys();
     deleted.add(key);
-    localStorage.setItem("sigep_deleted_products", JSON.stringify(Array.from(deleted)));
+    localStorage.setItem("sigep_deleted_products", safeJSONStringify(Array.from(deleted)));
 
     const saved = localStorage.getItem("sigep_unified_products");
     if (saved) {
       const parsed: UnifiedProduct[] = JSON.parse(saved);
       const filtered = parsed.filter((p) => toSingularProductName(p.nome).trim().toLowerCase() !== key);
-      localStorage.setItem("sigep_unified_products", JSON.stringify(filtered));
+      localStorage.setItem("sigep_unified_products", safeJSONStringify(filtered));
     }
 
     firestoreService.produtosUnificados.delete(docId).catch((err) => {
@@ -376,7 +377,7 @@ export async function deduplicateDatabaseProducts(): Promise<{ totalUnique: numb
       });
     });
 
-    localStorage.setItem("sigep_unified_products", JSON.stringify(cleanList));
+    localStorage.setItem("sigep_unified_products", safeJSONStringify(cleanList));
 
     return {
       totalUnique: cleanList.length,
@@ -398,7 +399,7 @@ export async function saveUnifiedProduct(product: { nome: string; preco: number;
     const deletedKeys = getDeletedProductKeys();
     if (deletedKeys.has(key)) {
       deletedKeys.delete(key);
-      localStorage.setItem("sigep_deleted_products", JSON.stringify(Array.from(deletedKeys)));
+      localStorage.setItem("sigep_deleted_products", safeJSONStringify(Array.from(deletedKeys)));
     }
 
     const index = current.findIndex((p) => toSingularProductName(p.nome).trim().toLowerCase() === key);
@@ -426,7 +427,7 @@ export async function saveUnifiedProduct(product: { nome: string; preco: number;
       newList.push(updatedProduct);
     }
 
-    localStorage.setItem("sigep_unified_products", JSON.stringify(newList));
+    localStorage.setItem("sigep_unified_products", safeJSONStringify(newList));
 
     const docId = `prod_${key}`.replace(/[^a-zA-Z0-9_]/g, "_");
     await firestoreService.produtosUnificados.set(docId, updatedProduct);
@@ -601,7 +602,7 @@ export function saveDepartmentActivity(departmentName: string, activityData: any
     const current = getDepartmentStoredActivities(departmentName);
     const filtered = current.filter((a: any) => a.id !== activityData.id && a.nomeAtividade !== activityData.nomeAtividade);
     filtered.unshift(activityData);
-    localStorage.setItem(`sigep_dept_activities_${deptKey}`, JSON.stringify(filtered));
+    localStorage.setItem(`sigep_dept_activities_${deptKey}`, safeJSONStringify(filtered));
 
     // Guardar diretamente na base de dados cloud (Firestore)
     if (activityData) {

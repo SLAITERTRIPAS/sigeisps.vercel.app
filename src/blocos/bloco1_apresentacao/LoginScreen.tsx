@@ -11,6 +11,7 @@ import {
   withTimeout,
   normalize as n,
   generateCollaboratorId,
+  safeJSONStringify,
 } from "../../lib/utils";
 import { EFETIVO_GERAL_DATA } from "../../constants/colaboradoresList";
 import RegistarFuncionarioForm from "../bloco8_gerais/RegistarFuncionarioForm";
@@ -69,7 +70,7 @@ const saveUserToCache = (userData: any) => {
     });
 
     filtered.push(userData);
-    localStorage.setItem("sigep_users_cache", JSON.stringify(filtered));
+    localStorage.setItem("sigep_users_cache", safeJSONStringify(filtered));
   } catch (e) {
     console.warn("Não foi possível guardar no cache local:", e);
   }

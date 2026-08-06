@@ -580,19 +580,7 @@ export default function AcaoOrcamentalView({
         }
       }
 
-      const fuelLitros = Number(act.litrosGasoleo || act.quantidadeLitros || 0);
-      const fuelPrice = Number(act.precoLitro || act.precoLitroCombustivel || 0);
-      const fuelVal = Number(act.valorTotalGasoleo || 0) || (fuelLitros * fuelPrice);
-      const alreadyHasFuelInRubricas = Array.isArray(act.rubricas) && act.rubricas.some((r: any) => {
-        const str = String(r.rubrica || r.nomeRubrica || r.code || r.necessidade || "").toLowerCase();
-        return str.includes("121001") || str.includes("combust");
-      });
-
-      if (!alreadyHasFuelInRubricas && fuelVal > 0) {
-        actVal += fuelVal;
-        hasRub = true;
-      }
-
+      // Apenas considera o valor das rubricas explicitamente planificadas
       if (!hasRub) {
         actVal += Number(
           act.valor ||
@@ -686,54 +674,6 @@ export default function AcaoOrcamentalView({
             rubricaMap[rubricaStr].necessidadesMap[necKey].atividadesCount += 1;
           }
         });
-      }
-
-      // 2. Combustível da atividade (Gasóleo, Gasolina, Petróleo)
-      const isTransport = act.necessitaTransporte === "Sim" || act.necessitaTransporte === true || act.transporte === "Sim";
-      const fuelLitros = Number(act.litrosGasoleo || act.quantidadeLitros || 0);
-      const fuelPrice = Number(act.precoLitro || act.precoLitroCombustivel || 0);
-      const fuelVal = Number(act.valorTotalGasoleo || 0) || (fuelLitros * fuelPrice);
-      const fuelType = String(act.tipoCombustivel || "Gasóleo").trim();
-
-      const alreadyHasFuelInRubricas = Array.isArray(act.rubricas) && act.rubricas.some((r: any) => {
-        const str = String(r.rubrica || r.nomeRubrica || r.code || r.necessidade || "").toLowerCase();
-        return str.includes("121001") || str.includes("combust");
-      });
-
-      if (!alreadyHasFuelInRubricas && isTransport && (fuelVal > 0 || fuelLitros > 0)) {
-        hasProcessedRubrica = true;
-        const rubricaStr = "121001 - Combustíveis e lubrificantes";
-        const prodName = isTransport
-          ? `${fuelType} (Transporte)`
-          : `${fuelType} (Equipamento / Sem Transporte)`;
-        const necessidadeStr = isTransport
-          ? `Combustível para Deslocação/Transporte`
-          : `Combustível de Funcionamento (${fuelType})`;
-
-        if (!rubricaMap[rubricaStr]) {
-          rubricaMap[rubricaStr] = {
-            rubricaName: rubricaStr,
-            totalValorRubrica: 0,
-            necessidadesMap: {},
-          };
-        }
-        rubricaMap[rubricaStr].totalValorRubrica += fuelVal;
-
-        const necKey = `${necessidadeStr} [Produto: ${prodName}]`;
-        if (!rubricaMap[rubricaStr].necessidadesMap[necKey]) {
-          rubricaMap[rubricaStr].necessidadesMap[necKey] = {
-            necessidadeName: necessidadeStr,
-            nomeProduto: prodName,
-            quantidadeTotal: 0,
-            valorTotalNecessidade: 0,
-            atividadesCount: 0,
-            precoUnitario: fuelPrice,
-            especificacao: `${fuelLitros} L × ${fuelPrice} MZN/L (${fuelType})`,
-          };
-        }
-        rubricaMap[rubricaStr].necessidadesMap[necKey].quantidadeTotal += fuelLitros || 1;
-        rubricaMap[rubricaStr].necessidadesMap[necKey].valorTotalNecessidade += fuelVal;
-        rubricaMap[rubricaStr].necessidadesMap[necKey].atividadesCount += 1;
       }
 
       // 3. Fallback para atividades que têm orçamento planificado no plano de atividades mas sem array de rubricas detalhado
@@ -1237,58 +1177,6 @@ export default function AcaoOrcamentalView({
             map[targetLabel].itemsMap[itemKey].count += 1;
           }
         });
-      }
-
-      // Combustível da atividade (Gasóleo, Gasolina, Petróleo)
-      const isTransport = act.necessitaTransporte === "Sim" || act.necessitaTransporte === true || act.transporte === "Sim";
-      const fuelLitros = Number(act.litrosGasoleo || act.quantidadeLitros || 0);
-      const fuelPrice = Number(act.precoLitro || act.precoLitroCombustivel || 0);
-      const fuelVal = Number(act.valorTotalGasoleo || 0) || (fuelLitros * fuelPrice);
-      const fuelType = String(act.tipoCombustivel || "Gasóleo").trim();
-
-      const alreadyHasFuelInRubricas = Array.isArray(act.rubricas) && act.rubricas.some((r: any) => {
-        const str = String(r.rubrica || r.nomeRubrica || r.code || r.necessidade || "").toLowerCase();
-        return str.includes("121001") || str.includes("combust");
-      });
-
-      if (!alreadyHasFuelInRubricas && isTransport && (fuelVal > 0 || fuelLitros > 0)) {
-        hasRubrica = true;
-        const targetLabel = "121001 - Combustíveis e lubrificantes";
-        const prodName = isTransport
-          ? `${fuelType} (Transporte)`
-          : `${fuelType} (Equipamento / Sem Transporte)`;
-        const necStr = isTransport
-          ? `Combustível para Deslocação/Transporte`
-          : `Combustível de Funcionamento (${fuelType})`;
-
-        if (!map[targetLabel]) {
-          map[targetLabel] = {
-            code: "121001",
-            label: targetLabel,
-            totalQuant: 0,
-            totalValor: 0,
-            itemsMap: {},
-          };
-        }
-
-        map[targetLabel].totalQuant += fuelLitros || 1;
-        map[targetLabel].totalValor += fuelVal;
-
-        const itemKey = `${necStr} [Produto: ${prodName}]`;
-        if (!map[targetLabel].itemsMap[itemKey]) {
-          map[targetLabel].itemsMap[itemKey] = {
-            label: necStr,
-            nomeProduto: prodName,
-            quant: 0,
-            valor: 0,
-            precoUnitario: fuelPrice,
-            especificacao: `${fuelLitros} L × ${fuelPrice} MZN/L (${fuelType})`,
-            count: 0,
-          };
-        }
-        map[targetLabel].itemsMap[itemKey].quant += fuelLitros || 1;
-        map[targetLabel].itemsMap[itemKey].valor += fuelVal;
-        map[targetLabel].itemsMap[itemKey].count += 1;
       }
 
       if (!hasRubrica) {

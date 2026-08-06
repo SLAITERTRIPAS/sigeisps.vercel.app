@@ -917,6 +917,13 @@ export default function ActivityForm({
 
   // Countdown effect to auto-close form
   useEffect(() => {
+    if (formData.frequencia === "Anual") {
+      if (formData.totalDias !== 12) {
+        setFormData((prev) => ({ ...prev, totalDias: 12 }));
+      }
+      return;
+    }
+
     if (!formData.mesesRealizacao || formData.mesesRealizacao.length === 0)
       return;
 
@@ -935,7 +942,7 @@ export default function ActivityForm({
     if (total > 0 && total !== formData.totalDias) {
       setFormData((prev) => ({ ...prev, totalDias: total }));
     }
-  }, [formData.mesesRealizacao, formData.mesesDetalhes]);
+  }, [formData.mesesRealizacao, formData.mesesDetalhes, formData.frequencia, formData.totalDias]);
 
   // Efeito para sincronizar automaticamente todos os campos de mês (mesRealizacao, mesExecucao, dataMes, mes) ao indicar o mês de execução ou as datas
   useEffect(() => {
@@ -2374,8 +2381,12 @@ export default function ActivityForm({
         }
 
         if (!formData.numeroAtividade) {
-          setError("Insira o número de ordem da atividade");
-          return false;
+          const nextNum = calculateNextNum(plannedActivitiesProp, formData.departamento);
+          const numStr = String(nextNum).padStart(3, "0");
+          setFormData((prev) => ({
+            ...prev,
+            numeroAtividade: numStr,
+          }));
         }
         return true;
       case 2:
@@ -2553,50 +2564,11 @@ export default function ActivityForm({
       let hasChanges = false;
       let currentRubricas = [...prev.rubricas];
 
-      // Auto-inject Fuel Rubrica ONLY if transport is needed (necessitaTransporte === 'Sim')
+      // Auto-inject Fuel Rubrica removido para garantir que o combustível só apareça se for explicitamente planificado pelo utilizador
       const needsTransport = prev.necessitaTransporte === "Sim";
 
-      if (needsTransport) {
-        const hasFuel = currentRubricas.some(
-          (r) =>
-            r.necessidade === "Combustíveis e lubrificantes" ||
-            r.necessidade === "121001 - Combustíveis e lubrificantes" ||
-            (Boolean(r.necessidade) &&
-              r.necessidade.toLowerCase().includes("combustív")) ||
-            (Boolean(r.necessidade) && r.necessidade.includes("121001")),
-        );
-        if (!hasFuel) {
-          const litros = prev.litrosGasoleo || 0;
-          const preco = prev.precoLitro || 125;
-          const valorTotal = prev.valorTotalGasoleo || litros * preco;
-          const tipo = prev.tipoCombustivel || "Gasóleo";
-          const especificacao = `Combustível do tipo ${tipo} (${litros} Litros x ${preco} MT) + 15% Margem (Oscilação/Desgaste)`;
-
-          const fuelItem = {
-            id: Date.now() + Math.random(),
-            rubrica: "Bens - 121",
-            necessidade: "121001 - Combustíveis e lubrificantes",
-            especificacao,
-            quantidade: litros,
-            precoUnitario: preco,
-            valorTotal,
-            autoInjected: true,
-          };
-
-          // If we only have one empty rubric, we can replace it instead of pushing
-          if (
-            currentRubricas.length === 1 &&
-            !currentRubricas[0].rubrica &&
-            !currentRubricas[0].necessidade
-          ) {
-            currentRubricas = [fuelItem];
-          } else {
-            currentRubricas.push(fuelItem);
-          }
-          hasChanges = true;
-        }
-      } else {
-        // If not needed, remove fuel rubrica ONLY if it was auto-injected
+      if (!needsTransport) {
+        // Se transporte é "Não", remove rubrica de combustível apenas se foi auto-injetada anteriormente
         const index = currentRubricas.findIndex(
           (r) =>
             (r.necessidade === "Combustíveis e lubrificantes" ||
@@ -2608,7 +2580,6 @@ export default function ActivityForm({
         );
         if (index >= 0) {
           currentRubricas.splice(index, 1);
-          // If we emptied the rubricas, put one empty default rubric
           if (currentRubricas.length === 0) {
             currentRubricas.push({
               id: Date.now(),
@@ -4009,7 +3980,21 @@ export default function ActivityForm({
                     if (val === "Anual") {
                       update.dataInicio = `${nextYear}-01-01`;
                       update.dataFim = `${nextYear}-12-31`;
-                      // Calcular dias do ano - Ajustado para 12 dias conforme pedido (1 por mês)
+                      update.mesesRealizacao = [
+                        "Janeiro",
+                        "Fevereiro",
+                        "Março",
+                        "Abril",
+                        "Maio",
+                        "Junho",
+                        "Julho",
+                        "Agosto",
+                        "Setembro",
+                        "Outubro",
+                        "Novembro",
+                        "Dezembro",
+                      ];
+                      // Calcular dias do ano - 12x1 = 12 dias (1 dia por mês)
                       update.totalDias = 12;
                     }
                     
@@ -4026,6 +4011,20 @@ export default function ActivityForm({
                 <option value="Diário">Diário</option>
               </select>
             </div>
+
+            {formData.frequencia === "Anual" && (
+              <div className="mb-6 p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl animate-in fade-in duration-300">
+                <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs mb-1">
+                  <span className="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] rounded-full uppercase font-black tracking-wider">
+                    12×1 = 12 Dias
+                  </span>
+                  <span>Periodicidade Anual (1 dia por mês)</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  Para atividades com frequência Anual, o sistema calcula automaticamente <strong>12 dias</strong> (12 meses × 1 dia por mês = 12 dias no ano).
+                </p>
+              </div>
+            )}
 
             {formData.frequencia === "Semestral" && (
               <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-2xl animate-in fade-in duration-300">
@@ -4376,7 +4375,9 @@ export default function ActivityForm({
                     }
                     const end = formData.dataFim;
                     let days = 0;
-                    if (start && end) {
+                    if (formData.frequencia === "Anual") {
+                      days = 12;
+                    } else if (start && end) {
                       const d1 = new Date(start);
                       const d2 = new Date(end);
                       if (d1 > d2) {
@@ -4466,7 +4467,9 @@ export default function ActivityForm({
                     }
                     const start = formData.dataInicio;
                     let days = 0;
-                    if (start && end) {
+                    if (formData.frequencia === "Anual") {
+                      days = 12;
+                    } else if (start && end) {
                       const d1 = new Date(start);
                       const d2 = new Date(end);
                       if (d1 > d2) {
@@ -4501,14 +4504,19 @@ export default function ActivityForm({
                   }
                 />
               </div>
-              <div className="md:col-span-2 flex justify-end items-center gap-4 pt-2">
-                <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest">
+              <div className="md:col-span-2 flex justify-between items-center gap-4 pt-2">
+                <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest flex items-center gap-2">
                   Total de dias calculados
+                  {formData.frequencia === "Anual" && (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-extrabold text-[10px] tracking-normal">
+                      12×1 = 12 dias (1 dia por mês)
+                    </span>
+                  )}
                 </span>
                 <input
                   type="text"
                   readOnly
-                  value={formData.totalDias}
+                  value={formData.frequencia === "Anual" ? 12 : formData.totalDias}
                   className="w-32 p-2.5 border bg-slate-50 border-slate-200 rounded-xl text-center text-sm font-black text-blue-950 outline-none"
                 />
               </div>
@@ -5533,19 +5541,19 @@ export default function ActivityForm({
                                       getCleanNecessidadeKey(rubrica.necessidade)
                                     ] || [];
                                   
+                                  const targetNec = (rubrica.necessidade || "").toLowerCase();
+                                  const valLower = (val || "").toLowerCase();
                                   const unifiedMatched = products.filter(p => 
-                                    (p.necessidade || "").toLowerCase() === rubrica.necessidade.toLowerCase() ||
-                                    formatNecessidadeWithCode(p.necessidade || "", p.rubrica).toLowerCase() === rubrica.necessidade.toLowerCase()
+                                    (p.necessidade || "").toLowerCase() === targetNec ||
+                                    formatNecessidadeWithCode(p.necessidade || "", p.rubrica).toLowerCase() === targetNec
                                   );
 
                                   const foundMarket = marketProds.find(
                                     (p) =>
-                                      p.nome.toLowerCase() ===
-                                      val.toLowerCase(),
+                                      (p.nome || "").toLowerCase() === valLower,
                                   ) || unifiedMatched.find(
                                     (p) =>
-                                      p.nome.toLowerCase() ===
-                                      val.toLowerCase(),
+                                      (p.nome || "").toLowerCase() === valLower,
                                   );
 
                                   if (foundMarket) {
@@ -5566,13 +5574,14 @@ export default function ActivityForm({
                                           foundMarket.preco,
                                     };
                                   } else if (val.length >= 3) {
-                                    const pastProductRubric = plannedActivities
-                                      .flatMap((a) => a.rubricas || [])
+                                    const pastProductRubric = (plannedActivities || [])
+                                      .flatMap((a) => (a && Array.isArray(a?.rubricas) ? a.rubricas : []))
                                       .find(
                                         (r: any) =>
+                                          r &&
                                           r.nomeProduto &&
-                                          r.nomeProduto.toLowerCase() ===
-                                            val.toLowerCase() &&
+                                          String(r.nomeProduto).toLowerCase() ===
+                                            valLower &&
                                           r.necessidade === rubrica.necessidade,
                                       );
 
@@ -6531,7 +6540,9 @@ export default function ActivityForm({
                           mDays = Math.ceil(Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                         }
                       }
-                      if (mDays === 0) {
+                      if (originalFormData.frequencia === "Anual") {
+                        mDays = 1;
+                      } else if (mDays === 0) {
                         mDays = originalFormData.totalDias || 1;
                       }
 

@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useCallback,
 } from "react";
+import { openPrintDocumentWindow } from "../../lib/printUtils";
 import {
   Send,
   CheckCircle2,

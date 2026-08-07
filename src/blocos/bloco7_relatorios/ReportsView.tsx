@@ -315,8 +315,14 @@ export default function ReportsView({
       owner: "Centro de Incubação de Empresas",
     },
     {
+      id: "act_estudantil",
+      title: "9. ATIVIDADES: GESTÃO ESTUDANTIL E ASSUNTOS ACADÉMICOS",
+      level: "direcao",
+      owner: "Gestão Estudantil",
+    },
+    {
       id: "constrangimentos",
-      title: "9. CONSTRANGIMENTOS E DESAFIOS",
+      title: "10. CONSTRANGIMENTOS E DESAFIOS",
       level: "institucional",
     },
   ];

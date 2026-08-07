@@ -431,7 +431,15 @@ export default function DirectorDashboard({
       items.splice(1, 0, { title: "Repartição de Arquivo", icon: Archive });
     }
 
-    // Verificação abrangente para Diretores de Curso e áreas académicas
+    // Verificação abrangente para Diretores de Curso e Chefe de Departamento de Disciplinas Gerais (Exclusivo, nunca no RH)
+    const isRHUser =
+      upperTitle.includes("RECURSOS HUMANOS") ||
+      upperTitle.includes("RH") ||
+      upperTitle.includes("PESSOAL") ||
+      upperUserRole.includes("RECURSOS HUMANOS") ||
+      upperUserRole.includes("RH") ||
+      upperUserRole.includes("PESSOAL");
+
     const isUserCourseDirector =
       upperUserRole.includes("DIRETOR DO CURSO") ||
       upperUserRole.includes("DIRETOR DE CURSO") ||
@@ -442,20 +450,17 @@ export default function DirectorDashboard({
       upperUserRole.includes("DIRETOR DE CURSOS") ||
       upperUserRole.includes("DIRECTOR DE CURSOS");
 
-    const isTitleCourseOrAcademic =
+    const isCourseOrAcademicTitle =
       upperTitle.includes("CURSO") ||
       upperTitle.includes("ENGENHARIA") ||
       upperTitle.includes("DEPARTAMENTO DE ENGENHARIA") ||
       upperTitle.includes("DEPARTAMENTO DE PESQUISA") ||
-      upperTitle.includes("DEPARTAMENTO DE DISCIPLINAS GERAIS") ||
       upperTitle.includes("DIVISÃO DE ENGENHARIA") ||
       upperTitle.includes("DIVISAO DE ENGENHARIA") ||
       upperTitle.includes("DEE") ||
       upperTitle.includes("DECC") ||
       upperTitle.includes("DECM") ||
-      upperTitle.includes("DDG") ||
       upperTitle.includes("DPE") ||
-      upperTitle.includes("DRA") ||
       upperTitle.includes("ELETROTÉCNICA") ||
       upperTitle.includes("ELETROTECNICA") ||
       upperTitle.includes("ELETRÓNICA") ||
@@ -478,9 +483,14 @@ export default function DirectorDashboard({
       upperTitle.includes("DIRECTOR DE CURSO") ||
       upperTitle.includes("LICENCIATURA");
 
+    const isHeadGeneralDisciplines =
+      upperTitle.includes("DISCIPLINAS GERAIS") ||
+      upperTitle.includes("DDG") ||
+      upperUserRole.includes("DISCIPLINAS GERAIS") ||
+      upperUserRole.includes("DDG");
+
     const isAuthorizedAcademic = 
-      isUserCourseDirector ||
-      isTitleCourseOrAcademic;
+      !isRHUser && (isUserCourseDirector || isCourseOrAcademicTitle || isHeadGeneralDisciplines);
 
     if (isAuthorizedAcademic) {
       if (!items.some((i) => i.title === "Gestão Académica")) {

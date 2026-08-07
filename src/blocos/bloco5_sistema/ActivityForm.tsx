@@ -127,15 +127,34 @@ export default function ActivityForm({
   user,
   readOnly = false,
 }: ActivityFormProps) {
-  const [plannedActivities, setPlannedActivities] = useState<any[]>(
-    plannedActivitiesProp || [],
-  );
+  const [plannedActivities, setPlannedActivities] = useState<any[]>([]);
 
   useEffect(() => {
     if (plannedActivitiesProp && plannedActivitiesProp.length > 0) {
-      setPlannedActivities(plannedActivitiesProp);
+      // Privacidade de Atividades: Cada setor vê apenas as suas próprias atividades
+      // Administradores e Diretores Gerais mantêm visão total para supervisão
+      const isSuperUser = 
+        user?.role === "admin" || 
+        user?.isOwner === true || 
+        (user?.title || "").toLowerCase().includes("diretor geral") ||
+        (user?.cargoChefia || "").toLowerCase().includes("diretor geral");
+
+      const userArea = (user?.setor || user?.reparticao || user?.departamento || "").toLowerCase().trim();
+
+      const filtered = isSuperUser 
+        ? plannedActivitiesProp 
+        : plannedActivitiesProp.filter((a: any) => {
+            if (!a) return false;
+            const actSector = (a.setor || a.unidadeSelecionada || a.reparticao || a.departamento || "").toLowerCase().trim();
+            // Correspondência estrita ou inclusiva para a área do usuário
+            return userArea !== "" && (actSector === userArea || actSector.includes(userArea) || userArea.includes(actSector));
+          });
+
+      setPlannedActivities(filtered);
+    } else {
+      setPlannedActivities([]);
     }
-  }, [plannedActivitiesProp]);
+  }, [plannedActivitiesProp, user]);
 
   const [step, setStep] = useState(1);
   const [autoFilled, setAutoFilled] = useState(false);
@@ -327,12 +346,12 @@ export default function ActivityForm({
         necessitaTransporte: initialData.necessitaTransporte || "Não",
         viatura: initialData.viatura || "",
         motorista: initialData.motorista || "",
-        distanciaDestino: initialData.distanciaDestino || 0,
-        distanciaKm: initialData.distanciaKm || 0,
-        litrosGasoleo: initialData.litrosGasoleo || 0,
-        precoLitro: initialData.precoLitro || 125,
+        distanciaDestino: initialData.distanciaDestino || "",
+        distanciaKm: initialData.distanciaKm || "",
+        litrosGasoleo: initialData.litrosGasoleo || "",
+        precoLitro: initialData.precoLitro || "",
         tipoCombustivel: initialData.tipoCombustivel || "Gasóleo",
-        valorTotalGasoleo: initialData.valorTotalGasoleo || 0,
+        valorTotalGasoleo: initialData.valorTotalGasoleo || "",
 
         rubricas:
           initialData.rubricas && initialData.rubricas.length > 0
@@ -415,12 +434,12 @@ export default function ActivityForm({
       necessitaTransporte: "Não",
       viatura: "",
       motorista: "",
-      distanciaDestino: 0,
-      distanciaKm: 0,
-      litrosGasoleo: 0,
-      precoLitro: 125,
+      distanciaDestino: "",
+      distanciaKm: "",
+      litrosGasoleo: "",
+      precoLitro: "",
       tipoCombustivel: "Gasóleo",
-      valorTotalGasoleo: 0,
+      valorTotalGasoleo: "",
 
       // Step 6: Rubricas
       rubricas: [],
@@ -2747,10 +2766,10 @@ export default function ActivityForm({
           }
         }
         if (isCombustivel && (rubrica as any).autoInjected === true) {
-          const quantidade = prev.litrosGasoleo || 0;
-          const precoUnitario = prev.precoLitro || 125;
+          const quantidade = prev.litrosGasoleo || "";
+          const precoUnitario = prev.precoLitro || "";
           const valorTotal =
-            prev.valorTotalGasoleo || quantidade * precoUnitario;
+            prev.valorTotalGasoleo || (quantidade !== "" && precoUnitario !== "" ? Number(quantidade) * Number(precoUnitario) : "");
           const especificacao = `Combustível do tipo ${prev.tipoCombustivel || "Gasóleo"} (${quantidade} Litros x ${precoUnitario} MT) + 15% Margem (Oscilação/Desgaste)`;
           if (
             rubrica.quantidade !== quantidade ||
@@ -3723,24 +3742,12 @@ export default function ActivityForm({
                     }
                     onChange={(e) => {
                       const prov = e.target.value;
-                      // Ao mudar a província, usamos o distrito como vazio para obter a distância base da província
-                      const dist = getDistanciaSongo(prov, "");
-                      const idaEVolta = dist * 2;
-                      const litrosBase = idaEVolta / 10; // consumo base (10km por litro)
-                      const litrosComMargem = parseFloat(
-                        (litrosBase * 1.15).toFixed(2),
-                      ); // +15% de margem de erro
                       setFormData({
                         ...formData,
                         realizacaoProvincia: prov,
                         trabalhoProvincia: prov,
                         realizacaoDistrito: "",
                         trabalhoDistrito: "",
-                        distanciaDestino: dist,
-                        distanciaKm: idaEVolta,
-                        litrosGasoleo: litrosComMargem,
-                        valorTotalGasoleo:
-                          litrosComMargem * (formData.precoLitro || 0),
                       });
                     }}
                     className="w-full p-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
@@ -3763,28 +3770,10 @@ export default function ActivityForm({
                     }
                     onChange={(e) => {
                       const distrit = e.target.value;
-                      const provincia =
-                        formData.realizacaoProvincia ||
-                        formData.trabalhoProvincia ||
-                        "Tete";
-                      // Calcula a distância detalhada e precisa para o distrito selecionado
-                      const dist = getDistanciaSongo(provincia, distrit);
-                      const isAirport = distrit === "Aeroporto de Chingodzi";
-                      const multiplier = isAirport ? 4 : 2;
-                      const idaEVolta = dist * multiplier;
-                      const litrosBase = idaEVolta / 10; // consumo base (10km por litro)
-                      const litrosComMargem = parseFloat(
-                        (litrosBase * 1.15).toFixed(2),
-                      ); // +15% de margem de erro
                       setFormData({
                         ...formData,
                         realizacaoDistrito: distrit,
                         trabalhoDistrito: distrit,
-                        distanciaDestino: dist,
-                        distanciaKm: idaEVolta,
-                        litrosGasoleo: litrosComMargem,
-                        valorTotalGasoleo:
-                          litrosComMargem * (formData.precoLitro || 0),
                         localidade: "",
                         postoAdministrativo: "",
                       });
@@ -4773,23 +4762,10 @@ export default function ActivityForm({
                           type="number"
                           value={formData.distanciaDestino || ""}
                           onChange={(e) => {
-                            const dist = Number(e.target.value);
-                            const isAirport =
-                              formData.realizacaoDistrito ===
-                              "Aeroporto de Chingodzi";
-                            const multiplier = isAirport ? 4 : 2;
-                            const idaEVolta = dist * multiplier;
-                            const litrosBase = idaEVolta / 10; // Consumo base (10km por litro)
-                            const litrosComMargem = parseFloat(
-                              (litrosBase * 1.15).toFixed(2),
-                            ); // +15% de margem de erro
+                            const dist = e.target.value === "" ? "" : Number(e.target.value);
                             setFormData({
                               ...formData,
                               distanciaDestino: dist,
-                              distanciaKm: idaEVolta,
-                              litrosGasoleo: litrosComMargem,
-                              valorTotalGasoleo:
-                                litrosComMargem * (formData.precoLitro || 0),
                             });
                           }}
                           className="w-full p-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-bold text-blue-950"
@@ -4811,9 +4787,15 @@ export default function ActivityForm({
                       <div className="relative">
                         <input
                           type="number"
-                          readOnly
                           value={formData.distanciaKm || ""}
-                          className="w-full p-2.5 border bg-gray-50 rounded-xl text-sm font-bold text-blue-900 outline-none"
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? "" : Number(e.target.value);
+                            setFormData({
+                              ...formData,
+                              distanciaKm: val,
+                            });
+                          }}
+                          className="w-full p-2.5 border rounded-xl text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                         />
                         <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">
                           KM
@@ -4843,9 +4825,16 @@ export default function ActivityForm({
                         </label>
                         <input
                           type="number"
-                          readOnly
                           value={formData.litrosGasoleo || ""}
-                          className="w-full p-2.5 border bg-gray-50 rounded-xl text-sm font-bold text-blue-900 outline-none"
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? "" : Number(e.target.value);
+                            setFormData({
+                              ...formData,
+                              litrosGasoleo: val,
+                              valorTotalGasoleo: val !== "" && formData.precoLitro !== "" ? Number(val) * Number(formData.precoLitro) : formData.valorTotalGasoleo
+                            });
+                          }}
+                          className="w-full p-2.5 border rounded-xl text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                         />
                       </div>
                       <div>
@@ -4866,11 +4855,11 @@ export default function ActivityForm({
                           type="number"
                           value={formData.precoLitro || ""}
                           onChange={(e) => {
-                            const preco = Number(e.target.value);
+                            const preco = e.target.value === "" ? "" : Number(e.target.value);
                             setFormData({
                               ...formData,
                               precoLitro: preco,
-                              valorTotalGasoleo: formData.litrosGasoleo * preco,
+                              valorTotalGasoleo: preco !== "" && formData.litrosGasoleo !== "" ? Number(formData.litrosGasoleo) * Number(preco) : formData.valorTotalGasoleo
                             });
                           }}
                           className="w-full p-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-bold text-blue-950"
@@ -4881,12 +4870,18 @@ export default function ActivityForm({
                           Valor Total de{" "}
                           {formData.tipoCombustivel || "Combustível"} (MZN)
                         </label>
-                        <div className="w-full p-2.5 bg-gray-50 border rounded-xl text-sm font-extrabold text-blue-900">
-                          {formData.valorTotalGasoleo?.toLocaleString("pt-MZ", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          }) + " MZN" || "0,00 MZN"}
-                        </div>
+                        <input
+                          type="number"
+                          value={formData.valorTotalGasoleo || ""}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? "" : Number(e.target.value);
+                            setFormData({
+                              ...formData,
+                              valorTotalGasoleo: val,
+                            });
+                          }}
+                          className="w-full p-2.5 border rounded-xl text-sm font-extrabold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        />
                       </div>
                     </div>
                   </motion.div>
@@ -4962,19 +4957,13 @@ export default function ActivityForm({
                   .includes("fora");
                 const valorDiario = isFora ? 0 : isDiretor ? 9000 : 6000;
 
-                const isCombustivelReadOnly =
-                  isCombustivel &&
-                  ((rubrica as any).autoInjected === true ||
-                    formData.necessitaTransporte === "Sim" ||
-                    (Boolean(formData.viatura) &&
-                      formData.viatura.trim() !== "" &&
-                      formData.viatura !== "Nenhuma"));
+                const isCombustivelReadOnly = false;
 
                 // If transport is NOT needed, some fields might be blocked
                 const isBlocked =
                   formData.necessitaTransporte === "Não" &&
                   (isAjudaCusto ||
-                    (isCombustivel && (rubrica as any).autoInjected === true));
+                    (isCombustivel && false));
 
                 return (
                   <div

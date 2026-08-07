@@ -119,7 +119,7 @@ export default function GestaoAcademicaView({
   );
 
   const isHeadOfPersonnel =
-    user?.cargoChefia === "Chefe de Repartição de Pessoal";
+    isAdmin || user?.cargoChefia === "Chefe de Repartição de Pessoal";
 
   const handleAllocate = async (docenteId: string) => {
     // Allocation to course might be allowed by Course Director,
@@ -1116,7 +1116,7 @@ export default function GestaoAcademicaView({
                                 <span className="text-[9px] font-black tracking-tighter">
                                   {aloc.curso.replace("Diretor do ", "")}
                                 </span>
-                                {aloc.curso === title && isAdmin && (
+                                {isHeadOfPersonnel && (
                                   <button
                                     onClick={() => handleDeallocate(aloc.id!)}
                                     className="ml-1 hover:text-red-500"

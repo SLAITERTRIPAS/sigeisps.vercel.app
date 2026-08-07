@@ -384,63 +384,123 @@ export default function DirectorDashboard({
 
     let items = [...baseItems];
 
+    const isAdmin = isSuperBossUser(user);
+
     // Role-specific additions (Only keeping non-department specific ones if absolutely necessary, but prompt says NO DIFFERENCES for departments)
     // To strictly follow "nenhum departamento deve ser diferente desse", we will just use baseItems for typical departments.
     
     // However, some specific operational views might still need their specific tabs if they are not standard departments.
-    if (
-      title.toUpperCase().includes("TRANSPOR") ||
-      title.toUpperCase().includes("FROTA") ||
-      title.toUpperCase().includes("VIATURA")
-    ) {
-      items.push({ title: "Gestão de Frota", icon: Car });
-      items.push({ title: "Gestão de Viatura", icon: ClipboardList });
+    const upperTitle = title.toUpperCase();
+    const upperUserRole = (
+      (user?.cargo || "") + " " +
+      (user?.cargoChefia || "") + " " +
+      (user?.title || "") + " " +
+      (user?.role || "") + " " +
+      (user?.funcao || "") + " " +
+      (user?.departamento || "") + " " +
+      (user?.areaDeAfetacao || "")
+    ).toUpperCase();
+
+    // Gestão de Frota e Gestão de Viatura (EXCLUSIVO PARA CHEFE DE TRANSPORTES / Repartição de Transporte)
+    const isChefeTransportes =
+      upperTitle.includes("TRANSPOR") ||
+      upperTitle.includes("FROTA") ||
+      upperTitle.includes("VIATURA") ||
+      upperUserRole.includes("TRANSPOR") ||
+      upperUserRole.includes("CHEFE DE TRANSPOR") ||
+      upperUserRole.includes("CHEFE DO SECTOR DE TRANSPOR") ||
+      upperUserRole.includes("CHEFE DA REPARTIÇÃO DE TRANSPOR") ||
+      upperUserRole.includes("CHEFE DA REPARTICAO DE TRANSPOR") ||
+      upperUserRole.includes("GESTOR DE FROTA") ||
+      upperUserRole.includes("GESTOR DE VIATURA");
+
+    if (isChefeTransportes) {
+      if (!items.some((i) => i.title === "Gestão de Frota")) {
+        items.push({ title: "Gestão de Frota", icon: Car });
+      }
+      if (!items.some((i) => i.title === "Gestão de Viatura")) {
+        items.push({ title: "Gestão de Viatura", icon: ClipboardList });
+      }
     }
 
-    if (title.toUpperCase().includes("BOLSA")) {
+    if (upperTitle.includes("BOLSA")) {
       items.unshift({ title: "Bolsa de Estudos", icon: GraduationCap });
     }
 
-    if (title.toUpperCase().includes("ATENDIMENTO ESTUDANTIL")) {
-      items.push({ title: "Gestão Estudantil", icon: GraduationCap });
-    }
-
-    if (title.toUpperCase().includes("ARQUIVO")) {
+    if (upperTitle.includes("ARQUIVO")) {
       items.splice(1, 0, { title: "Repartição de Arquivo", icon: Archive });
     }
 
-    const upperTitle = title.toUpperCase();
-    const isCourseOrAcademic =
+    // Verificação abrangente para Diretores de Curso e áreas académicas
+    const isUserCourseDirector =
+      upperUserRole.includes("DIRETOR DO CURSO") ||
+      upperUserRole.includes("DIRETOR DE CURSO") ||
+      upperUserRole.includes("DIRECTOR DO CURSO") ||
+      upperUserRole.includes("DIRECTOR DE CURSO") ||
+      upperUserRole.includes("DIRETOR DOS CURSOS") ||
+      upperUserRole.includes("DIRECTOR DOS CURSOS") ||
+      upperUserRole.includes("DIRETOR DE CURSOS") ||
+      upperUserRole.includes("DIRECTOR DE CURSOS");
+
+    const isTitleCourseOrAcademic =
       upperTitle.includes("CURSO") ||
+      upperTitle.includes("ENGENHARIA") ||
       upperTitle.includes("DEPARTAMENTO DE ENGENHARIA") ||
       upperTitle.includes("DEPARTAMENTO DE PESQUISA") ||
       upperTitle.includes("DEPARTAMENTO DE DISCIPLINAS GERAIS") ||
+      upperTitle.includes("DIVISÃO DE ENGENHARIA") ||
+      upperTitle.includes("DIVISAO DE ENGENHARIA") ||
       upperTitle.includes("DEE") ||
       upperTitle.includes("DECC") ||
       upperTitle.includes("DECM") ||
+      upperTitle.includes("DDG") ||
+      upperTitle.includes("DPE") ||
       upperTitle.includes("DRA") ||
       upperTitle.includes("ELETROTÉCNICA") ||
       upperTitle.includes("ELETROTECNICA") ||
+      upperTitle.includes("ELETRÓNICA") ||
+      upperTitle.includes("ELETRONICA") ||
+      upperTitle.includes("TELECOMUNICAÇÕES") ||
+      upperTitle.includes("TELECOMUNICACOES") ||
       upperTitle.includes("CONSTRUÇÃO CIVIL") ||
       upperTitle.includes("CONSTRUCO CIVIL") ||
       upperTitle.includes("CONSTRUÇÃO MECÂNICA") ||
-      upperTitle.includes("CONSTRUCAO MECANICA");
+      upperTitle.includes("CONSTRUCAO MECANICA") ||
+      upperTitle.includes("HIDRÁULICA") ||
+      upperTitle.includes("HIDRAULICA") ||
+      upperTitle.includes("TERMOTÉCNICA") ||
+      upperTitle.includes("TERMOTECNICA") ||
+      upperTitle.includes("ENERGIAS RENOVÁVEIS") ||
+      upperTitle.includes("ENERGIAS RENOVAVEIS") ||
+      upperTitle.includes("DIRETOR DO CURSO") ||
+      upperTitle.includes("DIRETOR DE CURSO") ||
+      upperTitle.includes("DIRECTOR DO CURSO") ||
+      upperTitle.includes("DIRECTOR DE CURSO") ||
+      upperTitle.includes("LICENCIATURA");
 
-    if (isCourseOrAcademic) {
-      // Restriction: Only for Course Directors and Chief of General Disciplines Dept. Remove HR Chief.
-      const isAuthorizedAcademic = 
-        upperTitle.includes("DIRETOR DO CURSO") || 
-        upperTitle.includes("DIRETOR DE CURSO") ||
-        upperTitle.includes("DEPARTAMENTO DE DISCIPLINAS GERAIS");
-      
-      if (isAuthorizedAcademic) {
+    const isAuthorizedAcademic = 
+      isUserCourseDirector ||
+      isTitleCourseOrAcademic;
+
+    if (isAuthorizedAcademic) {
+      if (!items.some((i) => i.title === "Gestão Académica")) {
         items.push({ title: "Gestão Académica", icon: Users });
       }
     }
 
-    // Add Gestão Estudantil for DRA / Registo Académico
-    if (upperTitle.includes("DRA") || upperTitle.includes("REGISTO ACADÉMICO") || upperTitle.includes("REGISTO ACADEMICO")) {
-       items.push({ title: "Gestão Estudantil", icon: GraduationCap });
+    // Add Gestão Estudantil exclusively for DRA / Registo Académico
+    const isDRA =
+      upperTitle.includes("DRA") ||
+      upperTitle.includes("REGISTO ACADÉMICO") ||
+      upperTitle.includes("REGISTO ACADEMICO") ||
+      upperUserRole.includes("REGISTO ACADÉMICO") ||
+      upperUserRole.includes("REGISTO ACADEMICO") ||
+      upperUserRole.includes("DRA");
+
+    if (isDRA) {
+      if (!items.some((i) => i.title === "Gestão Estudantil")) {
+        items.push({ title: "Gestão Estudantil", icon: GraduationCap });
+      }
     }
 
     return items;
@@ -488,6 +548,30 @@ export default function DirectorDashboard({
       );
     onPathChange?.(path);
   }, [activeItem, selectedPlanType, showActivityForm, onPathChange]);
+
+  React.useEffect(() => {
+    if (!user) return;
+    const isAdmin = isSuperBossUser(user);
+    if (
+      activeItem === "Repartição de Pessoal" ||
+      activeItem === "Gestão de Pessoal"
+    ) {
+      if (!isAdmin && !canAccessArea(user, user.direcao, user.departamento, "Pessoal")) {
+        onShowAlert("Acesso não autorizado a esta área.");
+        setActiveItem("Visão Geral");
+      }
+    }
+    if (
+      activeItem === "Repartição de Arquivo" ||
+      activeItem === "Arquivo Morto"
+    ) {
+      if (!isAdmin && !canAccessArea(user, user.direcao, user.departamento, "Arquivo")) {
+        onShowAlert("Acesso não autorizado a esta área.");
+        setActiveItem("Visão Geral");
+      }
+    }
+  }, [activeItem, user, onShowAlert]);
+
   const [individualActivities, setIndividualActivities] = useState<
     MatrixActivity[]
   >([]);
@@ -1000,8 +1084,7 @@ export default function DirectorDashboard({
       activeItem === "Repartição de Pessoal" ||
       activeItem === "Gestão de Pessoal"
     ) {
-      if (!canAccessArea(user, user.direcao, user.departamento, "Pessoal")) {
-        onShowAlert("Acesso não autorizado a esta área.");
+      if (!isSuperBossUser(user) && !canAccessArea(user, user.direcao, user.departamento, "Pessoal")) {
         return null;
       }
       return (
@@ -1021,8 +1104,7 @@ export default function DirectorDashboard({
       activeItem === "Repartição de Arquivo" ||
       activeItem === "Arquivo Morto"
     ) {
-      if (!canAccessArea(user, user.direcao, user.departamento, "Arquivo")) {
-        onShowAlert("Acesso não autorizado a esta área.");
+      if (!isSuperBossUser(user) && !canAccessArea(user, user.direcao, user.departamento, "Arquivo")) {
         return null;
       }
       return (

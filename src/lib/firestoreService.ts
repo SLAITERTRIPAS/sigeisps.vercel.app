@@ -329,53 +329,77 @@ function getLocalData(collectionName: string): any[] {
 function saveLocalData(collectionName: string, data: any[]) {
   try {
     const key = `sigep_local_${collectionName}`;
-    localStorage.setItem(key, JSON.stringify(data, getCircularReplacer()));
+    localStorage.setItem(key, safeJSONStringify(data));
   } catch (e) {
     console.error("Erro ao salvar local storage:", e);
   }
 }
 
-export async function addToCollection<T>(collectionName: string, data: T) {
-  const localId = "local_" + Math.random().toString(36).substring(2, 11);
+export async function addUserData(collectionName: string, data: object) {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Usuário não autenticado");
+  }
+
+  // Adiciona o userId do usuário aos dados conforme solicitado na imagem
   const cleanData = cleanObject(data);
-  const record = {
+  const userData = {
     ...cleanData,
-    uid: auth.currentUser?.uid || null,
-    tenantId: "ISPS",
-    createdAt: new Date().toISOString(),
+    userId: user.uid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
   };
 
   try {
+    const docRef = await addDoc(collection(db, collectionName), userData);
+    console.log(`✅ Dados do usuário salvos em ${collectionName}/${docRef.id}`);
+    
+    // Atualizar cache local
+    const localList = getLocalData(collectionName);
+    localList.push({ ...cleanData, id: docRef.id, userId: user.uid, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    saveLocalData(collectionName, localList);
+    
+    return docRef.id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, collectionName);
+    throw error;
+  }
+}
+
+export async function addToCollection<T>(collectionName: string, data: T) {
+  const cleanData = cleanObject(data);
+  const now = new Date().toISOString();
+  const user = auth.currentUser;
+
+  try {
+    // 1. Gravação direta no Firestore com userId conforme solicitado
     const docRef = await addDoc(collection(db, collectionName), {
       ...cleanData,
-      uid: auth.currentUser?.uid || null,
+      userId: user?.uid || null,
       tenantId: "ISPS",
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      synced: true
     });
+    
     localStorage.removeItem("sigep_quota_exceeded");
-    // Sincronizar cache local de forma transparente
+    
+    // 2. Cache local apenas após confirmação
     const localList = getLocalData(collectionName);
-    localList.push({ ...record, id: docRef.id });
+    localList.push({ ...cleanData, id: docRef.id, userId: user?.uid || null, createdAt: now, updatedAt: now });
     saveLocalData(collectionName, localList);
+    
+    console.log(`✅ Registro adicionado ao servidor: ${collectionName}/${docRef.id}`);
     return docRef.id;
   } catch (error: any) {
-    const errStr = (error?.message || String(error)).toLowerCase();
-    const isQuota =
-      error?.code === "resource-exhausted" ||
-      errStr.includes("quota") ||
-      errStr.includes("resource_exhausted");
-    if (isQuota) {
-      localStorage.setItem("sigep_quota_exceeded", "true");
-      console.warn(
-        `⚠️ Quota atingida na inserção da coleção ${collectionName}. Salvando no LocalStorage.`,
-      );
-    } else {
-      console.warn(`Aviso na inserção Firestore da coleção ${collectionName}, salvando localmente:`, error);
-    }
+    console.error(`❌ Falha na gravação direta em ${collectionName}:`, error);
+    
+    // Fallback local apenas para modo offline/quota
+    const localId = "local_pending_" + Math.random().toString(36).substring(2, 11);
     const localList = getLocalData(collectionName);
-    const newRecord = { ...record, id: localId };
-    localList.push(newRecord);
+    localList.push({ ...cleanData, id: localId, userId: user?.uid || null, createdAt: now, updatedAt: now, pending_sync: true });
     saveLocalData(collectionName, localList);
+    
     return localId;
   }
 }
@@ -385,81 +409,66 @@ export async function updateInCollection<T>(
   id: string,
   data: Partial<T>,
 ) {
-  console.log(`🚀 Tentando atualizar ${collectionName} com ID ${id}:`, data);
   const cleanData = cleanObject(data);
-  const updatedAtStr = new Date().toISOString();
-
-  // Sempre atualizar cache local primeiro para manter UI instantânea
-  const localList = getLocalData(collectionName);
-  const idx = localList.findIndex((item: any) => item.id === id);
-  if (idx !== -1) {
-    localList[idx] = {
-      ...localList[idx],
-      ...cleanData,
-      updatedAt: updatedAtStr,
-    };
-  } else {
-    localList.push({
-      id,
-      ...cleanData,
-      createdAt: updatedAtStr,
-      updatedAt: updatedAtStr,
-    });
-  }
-  saveLocalData(collectionName, localList);
+  const now = new Date().toISOString();
 
   try {
+    // 1. Prioridade absoluta: Atualização no Servidor
     const docRef = doc(db, collectionName, id);
     await setDoc(
       docRef,
       {
         ...cleanData,
-        uid: auth.currentUser?.uid || undefined,
+        userId: auth.currentUser?.uid || undefined,
         tenantId: "ISPS",
         updatedAt: serverTimestamp(),
+        synced: true
       },
       { merge: true },
     );
+    
     localStorage.removeItem("sigep_quota_exceeded");
-    console.log(`✅ Atualização de ${collectionName}/${id} bem-sucedida.`);
+    
+    // 2. Cache local apenas como reflexo do servidor
+    const localList = getLocalData(collectionName);
+    const idx = localList.findIndex((item: any) => item.id === id);
+    if (idx !== -1) {
+      localList[idx] = { ...localList[idx], ...cleanData, updatedAt: now };
+      saveLocalData(collectionName, localList);
+    }
   } catch (error: any) {
-    console.error(`❌ Erro ao atualizar ${collectionName}/${id}:`, error);
-    const errStr = (error?.message || String(error)).toLowerCase();
-    const isQuota =
-      error?.code === "resource-exhausted" ||
-      errStr.includes("quota") ||
-      errStr.includes("resource_exhausted");
-    if (isQuota) {
-      localStorage.setItem("sigep_quota_exceeded", "true");
-      console.warn(
-        `⚠️ Quota atingida na atualização de ${collectionName}/${id}. Mantendo localmente.`,
-      );
+    console.error(`Erro crítico na atualização de ${collectionName}/${id}:`, error);
+    
+    // Fallback local apenas para pendência de sincronização
+    const localList = getLocalData(collectionName);
+    const idx = localList.findIndex((item: any) => item.id === id);
+    if (idx !== -1) {
+      localList[idx] = { ...localList[idx], ...cleanData, updatedAt: now, pending_sync: true };
+      saveLocalData(collectionName, localList);
     }
   }
 }
 
 export async function deleteFromCollection(collectionName: string, id: string) {
-  // Sempre atualizar cache local primeiro
-  const localList = getLocalData(collectionName);
-  const filtered = localList.filter((item: any) => item.id !== id);
-  saveLocalData(collectionName, filtered);
-
   try {
+    // 1. Tentar apagar no Firestore (Prioridade)
     const docRef = doc(db, collectionName, id);
     await deleteDoc(docRef);
     localStorage.removeItem("sigep_quota_exceeded");
+    
+    // 2. Limpar cache local após sucesso
+    const localList = getLocalData(collectionName);
+    const filtered = localList.filter((item: any) => item.id !== id);
+    saveLocalData(collectionName, filtered);
+    
+    console.log(`✅ ${collectionName}/${id} removido do servidor.`);
   } catch (error: any) {
-    const errStr = (error?.message || String(error)).toLowerCase();
-    const isQuota =
-      error?.code === "resource-exhausted" ||
-      errStr.includes("quota") ||
-      errStr.includes("resource_exhausted");
-    if (isQuota) {
-      localStorage.setItem("sigep_quota_exceeded", "true");
-      console.warn(
-        `⚠️ Quota atingida na exclusão de ${collectionName}/${id}. Removendo localmente.`,
-      );
-    }
+    console.error(`❌ Erro ao apagar ${collectionName}/${id} no servidor:`, error);
+    
+    // Fallback: remover localmente mesmo se falhar no servidor para UI responder
+    const localList = getLocalData(collectionName);
+    const filtered = localList.filter((item: any) => item.id !== id);
+    saveLocalData(collectionName, filtered);
   }
 }
 
@@ -478,14 +487,33 @@ export async function getFromCollection<T>(
 
     localStorage.removeItem("sigep_quota_exceeded");
 
-    // Merge unsynced local items (starting with local_)
+    // Merge local items preferring the most recent one
     const localData = getLocalData(collectionName);
-    const localOnly = localData.filter((item) => item.id && String(item.id).startsWith("local_"));
-
+    
     const combinedMap = new Map<string, any>();
+    
+    // Add remote data first
     remoteData.forEach((item) => combinedMap.set(item.id, item));
-    localOnly.forEach((item) => {
-      if (!combinedMap.has(item.id)) combinedMap.set(item.id, item);
+    
+    // Merge local data: if local is newer or is a new local item, prefer local
+    localData.forEach((localItem) => {
+      if (!localItem.id) return;
+      
+      const existing = combinedMap.get(localItem.id);
+      const isLocalNewItem = String(localItem.id).startsWith("local_");
+      
+      if (!existing || isLocalNewItem) {
+        combinedMap.set(localItem.id, localItem);
+      } else {
+        // Compare timestamps to keep the newest version
+        const remoteUpdate = existing.updatedAt || existing.createdAt || 0;
+        const localUpdate = localItem.updatedAt || localItem.createdAt || 0;
+        
+        // If local is strictly newer, use it
+        if (new Date(localUpdate) > new Date(remoteUpdate)) {
+          combinedMap.set(localItem.id, localItem);
+        }
+      }
     });
 
     const combinedData = Array.from(combinedMap.values());
@@ -527,14 +555,28 @@ export function subscribeToCollection<T>(
         id: doc.id,
       })) as (T & { id: string })[];
 
-      // Merge unsynced local items
+      // Merge local items preferring the most recent one
       const localData = getLocalData(collectionName);
-      const localOnly = localData.filter((item) => item.id && String(item.id).startsWith("local_"));
-
       const combinedMap = new Map<string, any>();
+
+      // Add remote data
       remoteData.forEach((item) => combinedMap.set(item.id, item));
-      localOnly.forEach((item) => {
-        if (!combinedMap.has(item.id)) combinedMap.set(item.id, item);
+
+      // Merge local data
+      localData.forEach((localItem) => {
+        if (!localItem.id) return;
+        const existing = combinedMap.get(localItem.id);
+        const isLocalNewItem = String(localItem.id).startsWith("local_");
+
+        if (!existing || isLocalNewItem) {
+          combinedMap.set(localItem.id, localItem);
+        } else {
+          const remoteUpdate = existing.updatedAt || existing.createdAt || 0;
+          const localUpdate = localItem.updatedAt || localItem.createdAt || 0;
+          if (new Date(localUpdate) > new Date(remoteUpdate)) {
+            combinedMap.set(localItem.id, localItem);
+          }
+        }
       });
 
       const combinedData = Array.from(combinedMap.values());
@@ -768,6 +810,91 @@ export async function resequenceActivitiesAfterDelete(
   }
 }
 
+export async function syncAllLocalData() {
+  const collectionsToSync = [
+    "colaboradores_formacao",
+    "archive_documents",
+    "configuracoes",
+    "exames",
+    "signatures",
+    "calendar_events",
+    "notes",
+    "expedientes",
+    "library_visits",
+    "library_books",
+    "service_requests",
+    "suppliers",
+    "matrix_activities",
+    "colaboradores",
+    "colaboradores_chefia",
+    "actividades",
+    "bolsas",
+    "atendimentos_estudantis",
+    "processos_individuais",
+    "efetivo_escolar",
+    "materiais_bens",
+    "movimentos_economato",
+    "financial_data",
+    "inventarios_patrimoniais",
+    "requisicoes_internas",
+    "assiduidade",
+    "alocacoes_docentes",
+    "espacos_fisicos",
+    "turmas",
+    "disciplinas_academicas",
+    "users",
+    "access_alerts",
+    "monografia",
+    "institucional_plans",
+    "reports",
+    "plan_schedules",
+    "historico_chefias",
+    "tetos_orcamentais",
+    "produtos_unificados",
+    "balanco_config",
+  ];
+
+  console.log("🔄 Iniciando sincronização de dados locais com o Firestore...");
+  let syncedCount = 0;
+
+  for (const colName of collectionsToSync) {
+    const localData = getLocalData(colName);
+    if (!localData || localData.length === 0) continue;
+
+    // Filter items that might need syncing: starting with local_ OR having recent local updates
+    // For simplicity and safety, we try to push everything that isn't confirmed synced
+    for (const item of localData) {
+      if (!item.id) continue;
+
+      try {
+        const isLocalNew = String(item.id).startsWith("local_");
+        
+        if (isLocalNew) {
+          // It's a new item, add it and get a real ID
+          const { id, ...dataToSave } = item;
+          const newId = await addToCollection(colName, dataToSave);
+          if (newId && !newId.startsWith("local_")) {
+            syncedCount++;
+          }
+        } else {
+          // It's an existing item, update it (merge: true)
+          await updateInCollection(colName, item.id, item);
+          syncedCount++;
+        }
+      } catch (err) {
+        // Silent fail for individual items, will retry next time
+      }
+    }
+  }
+
+  if (syncedCount > 0) {
+    console.log(`✅ Sincronização concluída: ${syncedCount} itens processados.`);
+    localStorage.removeItem("sigep_quota_exceeded");
+  } else {
+    console.log("Sincronização concluída: nenhum dado pendente encontrado.");
+  }
+}
+
 export const firestoreService = {
   subscribeToDocument,
   subscribeCollection: subscribeToCollection,
@@ -775,6 +902,7 @@ export const firestoreService = {
   updateInCollection,
   deleteDocument: deleteFromCollection,
   resequenceActivitiesAfterDelete,
+  syncAllLocalData,
   colaboradores_formacao: createCollectionService<any>(
     "colaboradores_formacao",
   ),

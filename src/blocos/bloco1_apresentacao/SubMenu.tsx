@@ -163,12 +163,14 @@ export default function SubMenu({
   const isBiblioteca =
     titleUpper.includes("BIBLIOTECA") ||
     titleUpper === "Departamento De Biblioteca" ||
-    titleUpper === "Atendimento Estudantil" ||
+    titleUpper === "Atendimento Da Biblioteca" ||
     titleUpper === "Gestão De Biblioteca";
   const isRegistoAcademico =
     titleUpper.includes("REGISTO ACADÉMICO") ||
     titleUpper.includes("REGISTO ACADEMICO") ||
-    titleUpper === "Departamento De Registo Académico";
+    titleUpper === "Departamento De Registo Académico" ||
+    titleUpper === "Atendimento Estudantil" ||
+    titleUpper === "Gestão Estudantil";
   const isAssuntosEstudantis =
     titleUpper.includes("ASSUNTOS ESTUDANTIS") ||
     titleUpper === "Departamento De Assuntos Estudantis";

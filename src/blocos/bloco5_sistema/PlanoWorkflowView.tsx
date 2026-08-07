@@ -61,6 +61,7 @@ import {
   getReparticaoAbbreviation,
   getActivityInitials,
   getCircularReplacer,
+  safeJSONStringify,
 } from "../../lib/utils";
 import { EFETIVO_GERAL_DATA } from "../../constants/colaboradoresList";
 import { determineSectorAllocation } from "../../lib/allocationUtils";
@@ -522,7 +523,16 @@ export default function PlanoWorkflowView({
       }
     }
 
-    return authorized
+    const uniqueMap = new Map<string, any>();
+    authorized.forEach((a) => {
+      if (!a) return;
+      const key = a.id ? `id-${a.id}` : `${a.codigoAtividade || a.referencia || ""}-${a.designacao || a.title || ""}-${a.direcao || ""}-${a.setor || ""}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, a);
+      }
+    });
+
+    return Array.from(uniqueMap.values())
       .sort((a, b) => compareActivitiesStandardOrder(a, b, getActMonthIndex))
       .filter((a) => Number(a?.ano || 2026) === Number(selectedYear));
   }, [
@@ -1414,6 +1424,14 @@ export default function PlanoWorkflowView({
     );
   }, [institutionalDirectionsBreakdown]);
 
+  const roles = useMemo(() => getRoles(user?.title || user?.cargo || user?.cargoChefia || ""), [user]);
+  const canSeeSalaries = useMemo(() => {
+    return isSuperBossUser(user) || 
+           roles.isDG || 
+           (user?.title || user?.cargo || user?.cargoChefia || "").toUpperCase().includes("DAF") ||
+           ((user?.title || user?.cargo || user?.cargoChefia || "").toUpperCase().includes("DICOSAFA") && roles.isBoss);
+  }, [user, roles]);
+
   const salarioStats = useMemo(() => {
     let valPessoalEfetivo = 0; // Salários pagos pelo Estado
     let valPessoalNaoEfetivo = 0; // Salários pagos via Receitas Próprias (RH)
@@ -1421,7 +1439,7 @@ export default function PlanoWorkflowView({
     (rawActivities || []).forEach((act) => {
       const actTotal = getActivityTotal(act);
       const text =
-        `${act.titulo || ""} ${act.necessidade || ""} ${act.rubrica || ""} ${JSON.stringify(act.rubricas || "", getCircularReplacer())}`.toUpperCase();
+        `${act.titulo || ""} ${act.necessidade || ""} ${act.rubrica || ""} ${safeJSONStringify(act.rubricas || "")}`.toUpperCase();
 
       if (
         text.includes("DOCENTE") &&
@@ -1659,7 +1677,123 @@ export default function PlanoWorkflowView({
     | "pesoe"
     | "plano_setorial"
     | "plano_orcamento"
+    | "necessidades_quantidades"
   >("plano_setorial");
+
+  const groupedNecessidadesPlanificadas = useMemo(() => {
+    const planActivities = filteredActivities.filter(
+      (a) =>
+        (a.status as any) === "planificacao" &&
+        !a.isPESOE &&
+        (isSuperBossUser(user) || a.direcao === user?.direcao)
+    );
+
+    const productMap: {
+      [key: string]: {
+        nomeProduto: string;
+        necessidadeCategory: string;
+        rubricaCode: string;
+        quantidadeTotal: number;
+        valorTotal: number;
+        precoUnitarioMedio: number;
+        especificacoes: Set<string>;
+        atividadesCount: number;
+        atividadesList: string[];
+      };
+    } = {};
+
+    planActivities.forEach((act) => {
+      const actName =
+        act.designacaoAtividade ||
+        act.nomeAtividade ||
+        act.title ||
+        act.designacao ||
+        "Atividade Planificada";
+
+      if (Array.isArray(act.rubricas) && act.rubricas.length > 0) {
+        act.rubricas.forEach((r: any) => {
+          const prodName = String(
+            r.nomeProduto ||
+              r.especificacao ||
+              r.produto ||
+              r.item ||
+              r.necessidade ||
+              r.descricao ||
+              "Item sem nome"
+          ).trim();
+          const necCat = String(r.necessidade || r.categoria || "Necessidade Geral").trim();
+          const rubCode = String(r.rubrica || r.nomeRubrica || r.code || "Geral").trim();
+          const qty = Number(r.quantidade || r.qtd || 1);
+          const val = Number(r.valorTotal || r.total || r.valor || r.precoTotal || 0);
+
+          const key = `${necCat.toLowerCase()}|||${prodName.toLowerCase()}`;
+
+          if (!productMap[key]) {
+            productMap[key] = {
+              nomeProduto: prodName,
+              necessidadeCategory: necCat,
+              rubricaCode: rubCode,
+              quantidadeTotal: 0,
+              valorTotal: 0,
+              precoUnitarioMedio: 0,
+              especificacoes: new Set<string>(),
+              atividadesCount: 0,
+              atividadesList: [],
+            };
+          }
+
+          productMap[key].quantidadeTotal += qty;
+          productMap[key].valorTotal += val;
+          productMap[key].atividadesCount += 1;
+          if (!productMap[key].atividadesList.includes(actName)) {
+            productMap[key].atividadesList.push(actName);
+          }
+          if (r.especificacao) productMap[key].especificacoes.add(r.especificacao);
+        });
+      } else {
+        const val = getActivityTotal(act);
+        if (val > 0) {
+          const prodName = String(
+            act.designacao || act.nomeAtividade || act.title || "Atividade Planificada"
+          ).trim();
+          const necCat = String(act.necessidade || "Necessidade Geral").trim();
+          const rubCode = String(act.rubrica || "Despesas de Funcionamento").trim();
+          const qty = Number(act.quantidade || 1);
+          const key = `${necCat.toLowerCase()}|||${prodName.toLowerCase()}`;
+
+          if (!productMap[key]) {
+            productMap[key] = {
+              nomeProduto: prodName,
+              necessidadeCategory: necCat,
+              rubricaCode: rubCode,
+              quantidadeTotal: 0,
+              valorTotal: 0,
+              precoUnitarioMedio: 0,
+              especificacoes: new Set<string>(),
+              atividadesCount: 0,
+              atividadesList: [],
+            };
+          }
+
+          productMap[key].quantidadeTotal += qty;
+          productMap[key].valorTotal += val;
+          productMap[key].atividadesCount += 1;
+          if (!productMap[key].atividadesList.includes(actName)) {
+            productMap[key].atividadesList.push(actName);
+          }
+        }
+      }
+    });
+
+    return Object.values(productMap)
+      .map((item) => ({
+        ...item,
+        precoUnitarioMedio:
+          item.quantidadeTotal > 0 ? item.valorTotal / item.quantidadeTotal : 0,
+        especificacoesStr: Array.from(item.especificacoes).join("; "),
+      }))
+      .sort((a, b) => b.quantidadeTotal - a.quantidadeTotal);
+  }, [filteredActivities, user]);
   const [colaboradores, setColaboradores] = useState<any[]>(
     externalColaboradores,
   );
@@ -5339,6 +5473,16 @@ export default function PlanoWorkflowView({
                       Plano e Orçamento
                     </button>
                     <button
+                      onClick={() => setActiveSubTab("necessidades_quantidades")}
+                      className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all border ${
+                        activeSubTab === "necessidades_quantidades"
+                          ? "bg-slate-900 text-white border-slate-950 shadow-md"
+                          : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
+                      }`}
+                    >
+                      📦 Necessidades & Quantidades
+                    </button>
+                    <button
                       onClick={() => setActiveSubTab("plano_reparticao")}
                       className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all border ${
                         activeSubTab === "plano_reparticao"
@@ -5686,39 +5830,41 @@ export default function PlanoWorkflowView({
                                 </div>
                               </div>
                             ))}
-                            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between hover:bg-white/10 transition-all space-y-2">
-                              <div className="flex justify-between items-start gap-2 border-b border-white/10 pb-2">
-                                <span className="text-xs font-black text-white uppercase tracking-wide">
-                                  SALÁRIOS E REMUNERAÇÕES (RH)
-                                </span>
-                                <span className="text-[9px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-bold shrink-0">
-                                  RH / Separado
-                                </span>
+                            {canSeeSalaries && (
+                              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between hover:bg-white/10 transition-all space-y-2">
+                                <div className="flex justify-between items-start gap-2 border-b border-white/10 pb-2">
+                                  <span className="text-xs font-black text-white uppercase tracking-wide">
+                                    SALÁRIOS E REMUNERAÇÕES (RH)
+                                  </span>
+                                  <span className="text-[9px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-bold shrink-0">
+                                    RH / Separado
+                                  </span>
+                                </div>
+                                <div className="space-y-2 pt-1 text-[11px] text-slate-300">
+                                  <div className="flex justify-between items-center">
+                                    <span>Salários Pagos pelo Estado (Efetivos)</span>
+                                    <span className="font-mono font-bold text-emerald-400">
+                                      {salarioStats.salarioEstado}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span>Salário via Receitas Próprias (Não Efetivos)</span>
+                                    <span className="font-mono font-bold text-white">
+                                      {salarioStats.salarioReceitasProprias}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center pt-2 border-t border-white/10 font-bold text-amber-400">
+                                    <span>Total RH (Receitas Próprias)</span>
+                                    <span className="font-mono">
+                                      {salarioStats.totalGeral}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] text-slate-400 block italic pt-1">
+                                    * Salários do Estado são pagos pelo Tesouro Nacional e excluídos do orçamento geral de atividades.
+                                  </span>
+                                </div>
                               </div>
-                              <div className="space-y-2 pt-1 text-[11px] text-slate-300">
-                                <div className="flex justify-between items-center">
-                                  <span>Salários Pagos pelo Estado (Efetivos)</span>
-                                  <span className="font-mono font-bold text-emerald-400">
-                                    {salarioStats.salarioEstado}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <span>Salário via Receitas Próprias (Não Efetivos)</span>
-                                  <span className="font-mono font-bold text-white">
-                                    {salarioStats.salarioReceitasProprias}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center pt-2 border-t border-white/10 font-bold text-amber-400">
-                                  <span>Total RH (Receitas Próprias)</span>
-                                  <span className="font-mono">
-                                    {salarioStats.totalGeral}
-                                  </span>
-                                </div>
-                                <span className="text-[9px] text-slate-400 block italic pt-1">
-                                  * Salários do Estado são pagos pelo Tesouro Nacional e excluídos do orçamento geral de atividades.
-                                </span>
-                              </div>
-                            </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -6012,6 +6158,130 @@ export default function PlanoWorkflowView({
                                 </tr>
                               )}
                             </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-TAB: NECESSIDADES E QUANTIDADES PLANIFICADAS */}
+                  {activeSubTab === "necessidades_quantidades" && (
+                    <div className="space-y-2 print:block">
+                      <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xl shadow-slate-100/50 print:block">
+                        <div className="pb-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                          <div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-black uppercase tracking-wider mb-2">
+                              <span>📦 Consolidado de Bens, Materiais e Serviços</span>
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                              Necessidades e Quantidades Planificadas por Produto X
+                            </h3>
+                            <p className="text-slate-500 text-xs font-medium mt-1">
+                              Agrupamento automático de todos os produtos, materiais e recursos planificados com quantitativos totais acumulados.
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const el = document.getElementById("necessidades-quantidades-table");
+                                if (el) {
+                                  openPrintDocumentWindow({
+                                    title: `Relatorio_Necessidades_Quantidades_${selectedYear}`,
+                                    contentHtml: el.innerHTML,
+                                    orientation: "landscape",
+                                    pageSize: "A4",
+                                  });
+                                }
+                              }}
+                              className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
+                            >
+                              <Printer className="w-4 h-4" />
+                              Imprimir Quadro A4
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Tabela de Produtos / Necessidades e Quantidades */}
+                        <div id="necessidades-quantidades-table" className="mt-6 overflow-x-auto border border-slate-200 rounded-2xl shadow-xs">
+                          <table className="w-full text-left border-collapse font-sans text-xs">
+                            <thead>
+                              <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider">
+                                <th className="p-3.5 border-r border-slate-800 w-12 text-center">Nº</th>
+                                <th className="p-3.5 border-r border-slate-800">Categoria de Necessidade</th>
+                                <th className="p-3.5 border-r border-slate-800 font-bold">Produto / Item Solicitado</th>
+                                <th className="p-3.5 border-r border-slate-800 text-center bg-blue-950 text-blue-200 font-extrabold">Quantidade Total Planificada</th>
+                                <th className="p-3.5 border-r border-slate-800 text-right">Preço Médio (MZN)</th>
+                                <th className="p-3.5 border-r border-slate-800 text-right">Valor Total (MZN)</th>
+                                <th className="p-3.5 text-center w-28">Atividades</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 text-slate-700 font-medium">
+                              {groupedNecessidadesPlanificadas.length > 0 ? (
+                                groupedNecessidadesPlanificadas.map((item, idx) => (
+                                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                    <td className="p-3.5 text-center font-bold text-slate-500 border-r border-slate-200">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="p-3.5 font-bold text-slate-800 border-r border-slate-200">
+                                      {item.necessidadeCategory}
+                                    </td>
+                                    <td className="p-3.5 font-black text-slate-900 border-r border-slate-200">
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="text-blue-900 text-sm">{item.nomeProduto}</span>
+                                        {item.especificacoesStr && (
+                                          <span className="text-[10px] text-slate-500 italic font-normal">
+                                            Det: {item.especificacoesStr}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="p-3.5 text-center font-mono font-black text-blue-900 text-sm bg-blue-50/60 border-r border-slate-200">
+                                      <span className="px-2.5 py-1 rounded-md bg-blue-100 text-blue-900 border border-blue-200 font-bold">
+                                        {item.quantidadeTotal.toLocaleString("pt-MZ")}
+                                      </span>
+                                    </td>
+                                    <td className="p-3.5 text-right font-mono font-semibold text-slate-600 border-r border-slate-200">
+                                      {item.precoUnitarioMedio > 0
+                                        ? item.precoUnitarioMedio.toLocaleString("pt-MZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        : "---"}
+                                    </td>
+                                    <td className="p-3.5 text-right font-mono font-bold text-emerald-700 border-r border-slate-200">
+                                      {item.valorTotal.toLocaleString("pt-MZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN
+                                    </td>
+                                    <td className="p-3.5 text-center font-bold text-slate-600">
+                                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px]">
+                                        {item.atividadesCount} {item.atividadesCount === 1 ? "Atividade" : "Atividades"}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={7} className="p-12 text-center text-slate-400 italic font-medium">
+                                    Nenhuma necessidade com quantitativo mapeada no plano atual.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                            {groupedNecessidadesPlanificadas.length > 0 && (
+                              <tfoot>
+                                <tr className="bg-slate-900 text-white font-black text-xs">
+                                  <td colSpan={3} className="p-3.5 text-right uppercase tracking-wider border-r border-slate-800">
+                                    Total de Itens / Unidades Planificadas:
+                                  </td>
+                                  <td className="p-3.5 text-center font-mono font-black text-amber-300 text-sm bg-slate-950 border-r border-slate-800">
+                                    {groupedNecessidadesPlanificadas.reduce((sum, i) => sum + i.quantidadeTotal, 0).toLocaleString("pt-MZ")}
+                                  </td>
+                                  <td className="p-3.5 border-r border-slate-800"></td>
+                                  <td className="p-3.5 text-right font-mono font-black text-emerald-400 text-sm border-r border-slate-800">
+                                    {groupedNecessidadesPlanificadas.reduce((sum, i) => sum + i.valorTotal, 0).toLocaleString("pt-MZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN
+                                  </td>
+                                  <td></td>
+                                </tr>
+                              </tfoot>
+                            )}
                           </table>
                         </div>
                       </div>

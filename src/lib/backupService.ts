@@ -1,5 +1,5 @@
 import { db } from "./firebase";
-import { getCircularReplacer } from "./utils";
+import { getCircularReplacer, safeJSONStringify } from "./utils";
 import {
   collection,
   getDocs,
@@ -382,7 +382,7 @@ export async function generateFullBackup(
 
     if (onProgress) onProgress("A preparar ficheiro JSON do backup dos 4 órgãos...");
 
-    const jsonString = JSON.stringify(backupData, getCircularReplacer(), 2);
+    const jsonString = safeJSONStringify(backupData, null, 2);
     const blob = new Blob([jsonString], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
@@ -475,7 +475,7 @@ export async function restoreFullBackup(
       Object.entries(data["_localStorage_all_keys"]).forEach(([k, v]) => {
         if (SESSION_KEYS_TO_PROTECT.includes(k)) return;
         if (v !== undefined && v !== null) {
-          const stringVal = typeof v === "string" ? v : JSON.stringify(v, getCircularReplacer());
+          const stringVal = typeof v === "string" ? v : safeJSONStringify(v);
           localStorage.setItem(k, stringVal);
         }
       });
@@ -491,10 +491,10 @@ export async function restoreFullBackup(
   });
 
   if (data["_localStorage_sigep_unified_products"]) {
-    localStorage.setItem("sigep_unified_products", JSON.stringify(data["_localStorage_sigep_unified_products"]));
+    localStorage.setItem("sigep_unified_products", safeJSONStringify(data["_localStorage_sigep_unified_products"]));
   }
   if (data["_localStorage_sigep_deleted_products"]) {
-    localStorage.setItem("sigep_deleted_products", JSON.stringify(data["_localStorage_sigep_deleted_products"]));
+    localStorage.setItem("sigep_deleted_products", safeJSONStringify(data["_localStorage_sigep_deleted_products"]));
   }
 
   // Restauração passo a passo pelos 4 Órgãos
@@ -588,7 +588,7 @@ export async function restoreFullBackup(
               mergedList = Array.from(map.values());
             }
           }
-          localStorage.setItem(localKey, JSON.stringify(mergedList));
+          localStorage.setItem(localKey, safeJSONStringify(mergedList));
         } catch (e) {
           console.error(`Erro ao salvar no LocalStorage para ${collName}:`, e);
         }
@@ -636,7 +636,7 @@ export async function runAutomaticBackup(
 
   const { backupData, stats, organStats, totalRecords } = await collectAllBackupData(onProgress);
 
-  const jsonString = JSON.stringify(backupData, getCircularReplacer());
+  const jsonString = safeJSONStringify(backupData);
   const sizeKB = Math.round(jsonString.length / 1024);
 
   const record: SystemBackupRecord = {
@@ -685,7 +685,7 @@ export async function runAutomaticBackup(
     list.unshift(record);
     if (list.length > 10) list = list.slice(0, 10);
 
-    localStorage.setItem("sigep_automatic_backups", JSON.stringify(list));
+    localStorage.setItem("sigep_automatic_backups", safeJSONStringify(list));
     localStorage.setItem("sigep_last_auto_backup_time", String(now.getTime()));
   } catch (e) {
     console.error("Erro ao guardar backup automático no LocalStorage:", e);
@@ -768,7 +768,7 @@ export function downloadStoredBackupFile(record: SystemBackupRecord) {
     alert("Dados do backup selecionado não disponíveis para download local.");
     return;
   }
-  const jsonString = JSON.stringify(record.backupData, getCircularReplacer(), 2);
+  const jsonString = safeJSONStringify(record.backupData, null, 2);
   const blob = new Blob([jsonString], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 

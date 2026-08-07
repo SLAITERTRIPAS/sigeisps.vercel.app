@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { firestoreService } from "../../lib/firestoreService";
 import RegistarEfetivoEscolarForm from "../bloco8_gerais/RegistarEfetivoEscolarForm";
+import GestaoEstudantilView from "../bloco3_unidades_organicas/GestaoEstudantilView";
 
 const ISPS_COURSES = [
   "Curso de Engenharia Elétrica",
@@ -31,7 +32,7 @@ const ISPS_COURSES = [
   "Curso de Engenharia Termotécnica",
 ];
 
-export default function DRADashboard() {
+export default function DRADashboard({ user }: { user?: any }) {
   const [dbRecords, setDbRecords] = useState<any[]>([]);
   const [colaboradores, setColaboradores] = useState<any[]>([]);
   const [expedientes, setExpedientes] = useState<any[]>([]);
@@ -39,7 +40,7 @@ export default function DRADashboard() {
   const [financialData, setFinancialData] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"geral" | "efetivo" | "planos" | "relatorios" | "discente" | "expediente" | "recursos_financeiros">("geral");
+  const [activeTab, setActiveTab] = useState<"geral" | "efetivo" | "planos" | "relatorios" | "discente" | "expediente" | "recursos_financeiros" | "gestao_estudantil">("geral");
 
   // Relatório dropdown state
   const [showRelatorioDropdown, setShowRelatorioDropdown] = useState(false);
@@ -389,7 +390,25 @@ export default function DRADashboard() {
         >
           Recursos Financeiros
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("gestao_estudantil")}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "gestao_estudantil" ? "bg-white text-blue-950 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+        >
+          Gestão Estudantil
+        </button>
       </div>
+
+      {/* Gestão Estudantil Tab Content */}
+      {activeTab === "gestao_estudantil" && (
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+          <GestaoEstudantilView 
+            onBack={() => setActiveTab("geral")} 
+            user={{ ...user, cargo: "Registo Académico" }} 
+            title="Gestão Estudantil (Setor de Atendimento)" 
+          />
+        </div>
+      )}
 
       {/* Efetivo Geral Section (DICENTE and CTA with H, M, TOTAL) */}
       {(activeTab === "geral" || activeTab === "efetivo") && (

@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { FileText, Download, ArrowLeft, Printer } from "lucide-react";
+import { openPrintDocumentWindow } from "../../lib/printUtils";
 
 interface ReportSection {
   title: string;
@@ -57,7 +58,17 @@ export default function StandardReportModel({
   onBack,
 }: StandardReportModelProps) {
   const handlePrint = () => {
-    window.print();
+    const reportElement = document.getElementById("standard-report-content");
+    if (reportElement) {
+      openPrintDocumentWindow({
+        title: title || "Relatório de Atividades - ISPS",
+        contentHtml: reportElement.innerHTML,
+        orientation: "auto",
+        pageSize: "auto",
+      });
+    } else {
+      window.print();
+    }
   };
 
   const renderStatsTable = () => {
@@ -197,7 +208,7 @@ export default function StandardReportModel({
       </div>
 
       {/* Report Pages Container */}
-      <div className="flex flex-col gap-12 print:gap-0 items-center pb-20">
+      <div id="standard-report-content" className="flex flex-col gap-12 print:gap-0 items-center pb-20">
         {/* Page 1: Cover */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}

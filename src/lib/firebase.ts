@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { safeJSONStringify } from "./utils";
 import {
   getFirestore,
   doc,
@@ -125,14 +126,7 @@ export function handleFirestoreError(
 
   let safeErrStr = rawErrorMsg;
   try {
-    const seen = new WeakSet();
-    safeErrStr = JSON.stringify(errInfo, (_key, value) => {
-      if (typeof value === "object" && value !== null) {
-        if (seen.has(value)) return "[Circular]";
-        seen.add(value);
-      }
-      return value;
-    });
+    safeErrStr = safeJSONStringify(errInfo);
   } catch (e) {
     safeErrStr = String(rawErrorMsg);
   }

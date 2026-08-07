@@ -196,7 +196,7 @@ export const EstruturaExplorer = () => {
             },
             {
               title: "Departamento de Assuntos Estudantis",
-              reparticoes: ["Chefe do DAE", "Atendimento Estudantil", "Repartição de Bolsa de Estudos", "Repartição de Desporto e Recreação"],
+              reparticoes: ["Chefe do DAE", "Repartição de Bolsa de Estudos", "Repartição de Desporto e Recreação"],
             },
             {
               title: "Departamento de Biblioteca",

@@ -2169,11 +2169,14 @@ export default function AcaoOrcamentalView({
               <table className="w-full text-left text-xs border-collapse font-sans">
                 <thead>
                   <tr className="bg-slate-200 text-slate-900 border-b-2 border-slate-400 font-black">
-                    <th className="p-3 border border-slate-300 w-[70%]">
+                    <th className="p-3 border border-slate-300 w-[50%]">
                       <div className="flex items-center gap-1">
-                        <span>Rubrica e Necessidade</span>
+                        <span>Rubrica e Necessidade / Produto X</span>
                         <span className="text-[10px] text-slate-500 font-normal ml-1">▼</span>
                       </div>
+                    </th>
+                    <th className="p-3 text-center border border-slate-300 w-[20%] font-mono">
+                      Qtd Total Planificada
                     </th>
                     <th className="p-3 text-right border border-slate-300 w-[30%] font-mono">
                       Valor Total (MZN)
@@ -2190,7 +2193,7 @@ export default function AcaoOrcamentalView({
                     if (filteredRows.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={2} className="p-8 text-center text-slate-400 italic">
+                          <td colSpan={3} className="p-8 text-center text-slate-400 italic">
                             Nenhum dado encontrado para o filtro selecionado.
                           </td>
                         </tr>
@@ -2217,6 +2220,9 @@ export default function AcaoOrcamentalView({
                                 <span className="font-bold">{row.label}</span>
                               </div>
                             </td>
+                            <td className="p-2.5 text-center border border-slate-200 font-mono font-bold text-blue-900">
+                              {row.totalQuant > 0 ? row.totalQuant.toLocaleString("pt-MZ") : "—"}
+                            </td>
                             <td className="p-2.5 text-right border border-slate-200 font-mono font-bold">
                               {row.totalValor > 0
                                 ? row.totalValor.toLocaleString("pt-MZ", {
@@ -2240,11 +2246,6 @@ export default function AcaoOrcamentalView({
                                           📦 Produto: {item.nomeProduto}
                                         </span>
                                       )}
-                                      {item.quant > 0 && (
-                                        <span className="text-[10px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded">
-                                          Qtd/Litros: {item.quant}{item.precoUnitario ? ` × ${item.precoUnitario.toLocaleString("pt-MZ")} MT` : ""}
-                                        </span>
-                                      )}
                                     </div>
                                     {item.especificacao && (
                                       <div className="text-[10px] text-slate-500 italic pl-4 border-l-2 border-slate-200 font-normal">
@@ -2252,6 +2253,13 @@ export default function AcaoOrcamentalView({
                                       </div>
                                     )}
                                   </div>
+                                </td>
+                                <td className="p-2.5 text-center border border-slate-200 font-mono font-bold text-blue-900 bg-blue-50/40">
+                                  {item.quant > 0 ? (
+                                    <span className="px-2 py-0.5 rounded bg-blue-100/80 text-blue-900">
+                                      {item.quant.toLocaleString("pt-MZ")}{item.precoUnitario ? ` (× ${item.precoUnitario.toLocaleString("pt-MZ")} MT)` : ""}
+                                    </span>
+                                  ) : "—"}
                                 </td>
                                 <td className="p-2.5 text-right border border-slate-200 font-mono font-semibold text-slate-800">
                                   {item.valor.toLocaleString("pt-MZ", {
@@ -2270,6 +2278,9 @@ export default function AcaoOrcamentalView({
                   <tr className="bg-slate-200 text-slate-900 border-t-2 border-b-2 border-slate-800 font-black">
                     <td className="p-3 border border-slate-400 text-left font-black uppercase">
                       Total Geral
+                    </td>
+                    <td className="p-3 text-center border border-slate-400 font-mono font-black text-blue-950">
+                      {sistafeGrandTotals.quant.toLocaleString("pt-MZ")}
                     </td>
                     <td className="p-3 text-right border border-slate-400 font-mono font-black text-sky-900">
                       {sistafeGrandTotals.valor.toLocaleString("pt-MZ", {

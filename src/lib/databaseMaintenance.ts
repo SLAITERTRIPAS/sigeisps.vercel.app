@@ -203,9 +203,8 @@ export const databaseMaintenance = {
         await batch.commit();
       }
 
-      localStorage.removeItem("sigep_local_matrix_activities");
-      localStorage.removeItem("sigep_local_actividades");
-
+      // A limpeza de cache local agora é gerida pela lógica de fusão do firestoreService
+      // para evitar perda de dados não sincronizados (local_)
       console.log(
         `Renumeração e exclusão concluídas. Deletadas: ${deletedCount}. Atualizadas: ${sortedDocs.length}`,
       );
@@ -398,12 +397,8 @@ export const databaseMaintenance = {
       }
     }
 
-    // Limpar cache local para forçar recarregamento sem os dados excluídos
-    localStorage.removeItem("sigep_local_actividades");
-    localStorage.removeItem("sigep_local_matrix_activities");
-    localStorage.removeItem("sigep_local_colaboradores");
-    localStorage.removeItem("sigep_local_users");
-
+    // A limpeza de cache local agora é gerida de forma segura pela lógica de fusão do firestoreService
+    // preservando itens com prefixo 'local_' que ainda não foram sincronizados.
     console.log(
       `Limpeza concluída! Atividades deletadas: ${deletedActivitiesCount}. Colaboradores/Usuários deletados: ${deletedEntitiesCount}`,
     );
@@ -493,11 +488,10 @@ export const databaseMaintenance = {
       collectionsToClear.map((col) => this.clearCollection(col)),
     );
 
-    // Limpar caches locais de dados de teste (preservando utilizador logado e colaboradores)
+    // Limpar apenas caches específicos de UI, preservando dados de coleções principais
     try {
       Object.keys(localStorage).forEach((k) => {
         if (
-          k.startsWith("sigep_local_") ||
           k.startsWith("sigep_dept_activities_") ||
           k.startsWith("teto_atribuido_") ||
           k.startsWith("mono_") ||

@@ -190,7 +190,6 @@ export const REPARTICOES: Record<string, string[]> = {
   ],
   "Departamento de Assuntos Estudantis": [
     "Chefe do DAE",
-    "Atendimento Estudantil",
     "Repartição de Bolsa de Estudos",
     "Repartição de Desporto e Recreação",
   ],

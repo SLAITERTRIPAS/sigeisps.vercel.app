@@ -257,7 +257,6 @@ export const baseMenuItems = [
             title: "Departamento de Assuntos Estudantis",
             subItems: [
               { title: "Chefe do DAE" },
-              { title: "Atendimento Estudantil" },
               {
                 title: "Repartição de Bolsa de Estudos",
               },
@@ -272,7 +271,7 @@ export const baseMenuItems = [
                 title: "Biblioteca",
                 subItems: [
                   {
-                    title: "Atendimento Estudantil",
+                    title: "Atendimento da Biblioteca",
                     subItems: [
                       { title: "Registos de Visitantes" },
                       { title: "Registo de Obras e Livros" },

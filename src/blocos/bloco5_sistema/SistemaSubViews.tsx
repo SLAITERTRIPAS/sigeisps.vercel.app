@@ -31,6 +31,7 @@ import { isSuperBossUser } from "../../lib/auth";
 import { ProcessingCircle } from "../../components/ui/ProcessingCircle";
 import { openPrintDocumentWindow } from "../../lib/printUtils";
 import { formatRelativeTime } from "../bloco5_sistema/systemUtils";
+import { safeJSONStringify } from "../../lib/utils";
 import blueprint from "../../../firebase-blueprint.json";
 import MonografiaView from "../bloco3_unidades_organicas/MonografiaView";
 import SystemRegistrationForm from "../bloco5_sistema/SystemRegistrationForm";
@@ -127,7 +128,7 @@ export function CPanelView({
             </div>
             <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 text-green-400 overflow-auto max-h-[600px] scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
               <pre className="text-[10px] leading-relaxed">
-                {JSON.stringify(
+                {safeJSONStringify(
                   {
                     config: {
                       sync_interval: "realtime",
@@ -707,7 +708,7 @@ export function UserManagementView({
 
   const handleDeleteUser = async (id: string) => {
     if (!isSuperBossUser(currentUser)) {
-      alert("Apenas o proprietário pode remover utilizadors.");
+      alert("Apenas o proprietário pode remover utilizadores.");
       return;
     }
     if (
@@ -783,7 +784,7 @@ export function UserManagementView({
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
         <h2 className="text-2xl font-black text-blue-900 tracking-tight">
-          Gestão de Utilizadors
+          Gestão de Utilizadores
         </h2>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="relative flex-grow md:w-64">
@@ -833,7 +834,7 @@ export function UserManagementView({
                   <div className="flex flex-col items-center justify-center gap-6">
                     <ProcessingCircle size={60} strokeWidth={1.5} />
                     <p className="text-gray-400 font-black tracking-[0.3em] text-[10px] animate-pulse">
-                      A carregar utilizadors...
+                      A carregar utilizadores...
                     </p>
                   </div>
                 </td>

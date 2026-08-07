@@ -24,20 +24,13 @@ export const canAccessArea = (
   if (!user) return false;
   
   // Super Boss, Admin, etc can see everything
+  if (isSuperBossUser(user)) {
+    return true;
+  }
+
   const role = (user.role || "").toLowerCase();
   const title = (user.title || user.cargo || user.cargoChefia || "").toLowerCase();
   const combinedRole = role + " " + title;
-  
-  if (
-    combinedRole.includes("admin") ||
-    combinedRole.includes("proprietario") ||
-    combinedRole.includes("diretor geral") ||
-    combinedRole.includes("director geral") ||
-    combinedRole.includes("diretor-geral") ||
-    user.email === "admin@isps.ac.mz"
-  ) {
-    return true;
-  }
 
   const uDir = (user.direcao || "").toLowerCase().trim();
   const uDept = (user.departamento || "").toLowerCase().trim();
@@ -153,8 +146,7 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
     role === "proprietario" ||
     role === "proprietário" ||
     user.isOwner === true ||
-    (user.categoria || "").toLowerCase().includes("programador") ||
-    (user.email || "").toLowerCase() === "admin@isps.ac.mz";
+    (user.categoria || "").toLowerCase().includes("programador");
 
   const uEmail = (user.email || "").toLowerCase();
 
@@ -255,7 +247,11 @@ export const isSuperBossUser = (user: any) => {
     user.categoria === "Programador e Proprietário do Sistema" ||
     user.categoria === "Proprietário e Programador do Sistema" ||
     user.categoria === "Proprietario E Progrramador Do Sistema" ||
-    user.cargo === "Programador e Proprietário do Sistema"
+    user.categoria === "Administrador e Proprietário do Sistema" ||
+    user.categoria === "Administrador e Proprietario do Sistema" ||
+    user.cargo === "Programador e Proprietário do Sistema" ||
+    user.cargo === "Administrador e Proprietário do Sistema" ||
+    user.cargo === "Administrador e Proprietario do Sistema"
   )
     return true;
 
@@ -263,13 +259,12 @@ export const isSuperBossUser = (user: any) => {
   if (uNuit === "108164611") return true;
 
   const lowName = (user.name || user.nome || "").toLowerCase();
-  if (lowName.includes("franzissi") || lowName.includes("slaiter")) return true;
+  if (lowName.includes("slaiter")) return true;
 
   return (
     normName.includes("diretorgeral") ||
     normName.includes("diretorsistema") ||
     normName.includes("administradorsistema") ||
-    email === "admin@isps.ac.mz" ||
     email === "slaitertripas@gmail.com" ||
     user.name === "Administrador Sistema"
   );
@@ -376,9 +371,7 @@ export const isPatrimonioBossOrAdmin = (
 
   const email = (user.email || "").toLowerCase();
   if (
-    email === "slaitertripas@gmail.com" ||
-    email === "fttripas@gmail.com" ||
-    email === "admin@isps.ac.mz"
+    email === "slaitertripas@gmail.com"
   )
     return true;
   if (email.includes("gércio.chaibande") || email.includes("gercio.chaibande"))

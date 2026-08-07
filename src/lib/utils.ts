@@ -51,6 +51,73 @@ export function toSentenceCase(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 }
 
+export function sanitizeForJSON(obj: any, seen = new WeakSet()): any {
+  if (obj === null || obj === undefined) return obj;
+  const type = typeof obj;
+  if (type === "number" || type === "boolean" || type === "string") return obj;
+  if (type === "bigint") return obj.toString();
+  if (type === "function" || type === "symbol") return undefined;
+
+  // DOM / React / Event check
+  if (
+    (typeof Node !== "undefined" && obj instanceof Node) ||
+    (typeof Window !== "undefined" && obj instanceof Window) ||
+    (typeof Event !== "undefined" && obj instanceof Event) ||
+    obj.nodeType ||
+    obj.$$typeof ||
+    obj.nativeEvent
+  ) {
+    return undefined;
+  }
+
+  // Firestore Timestamp
+  if (typeof obj.toDate === "function") {
+    try {
+      return obj.toDate().toISOString();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Firestore DocumentReference / Query / Firestore instance / Firebase Auth User
+  if (obj._firestore || obj.firestore || obj._delegate || obj.auth) {
+    if (obj.path) return obj.path;
+    if (obj.id) return obj.id;
+    if (obj.uid) return { uid: obj.uid, email: obj.email };
+    return undefined;
+  }
+
+  if (type === "object") {
+    if (seen.has(obj)) {
+      return undefined;
+    }
+    seen.add(obj);
+
+    if (Array.isArray(obj)) {
+      return obj
+        .map((item) => sanitizeForJSON(item, seen))
+        .filter((item) => item !== undefined);
+    }
+
+    const cleanObj: Record<string, any> = {};
+    for (const key of Object.keys(obj)) {
+      if (key.startsWith("_") && key !== "_id") continue;
+      try {
+        const val = obj[key];
+        const sanitized = sanitizeForJSON(val, seen);
+        if (sanitized !== undefined) {
+          cleanObj[key] = sanitized;
+        }
+      } catch (e) {
+        // Ignorar propriedades inacessiveis
+      }
+    }
+    return cleanObj;
+  }
+
+  return String(obj);
+}
+
 export const getCircularReplacer = () => {
   const seen = new WeakSet();
   return (key: string, value: any) => {
@@ -67,8 +134,21 @@ export const getCircularReplacer = () => {
         (typeof Event !== "undefined" && value instanceof Event) ||
         value.nodeType ||
         value.$$typeof ||
-        value.nativeEvent
+        value.nativeEvent ||
+        value._firestore ||
+        value.firestore ||
+        value._delegate ||
+        value.auth
       ) {
+        if (typeof value.toDate === "function") {
+          try {
+            return value.toDate().toISOString();
+          } catch (e) {
+            return null;
+          }
+        }
+        if (value.path) return value.path;
+        if (value.id) return value.id;
         return undefined;
       }
       if (seen.has(value)) {
@@ -86,18 +166,18 @@ export function safeJSONStringify(
   space?: string | number,
 ): string {
   try {
-    const circReplacer = getCircularReplacer();
-    const combinedReplacer = (key: string, value: any) => {
-      const safeVal = circReplacer(key, value);
-      if (typeof replacer === "function") {
-        return replacer(key, safeVal);
-      }
-      return safeVal;
-    };
-    return JSON.stringify(obj, combinedReplacer, space);
+    const cleanObj = sanitizeForJSON(obj);
+    if (typeof replacer === "function") {
+      return JSON.stringify(cleanObj, replacer, space);
+    }
+    return JSON.stringify(cleanObj, getCircularReplacer(), space);
   } catch (err) {
     console.warn("safeJSONStringify fallback:", err);
-    return "{}";
+    try {
+      return JSON.stringify(String(obj));
+    } catch (e) {
+      return "{}";
+    }
   }
 }
 
@@ -234,7 +314,7 @@ const CORRECTIONS: Record<string, string> = {
   historico: "Histórico",
   historica: "Histórica",
   usuario: "Utilizador",
-  usuarios: "Utilizadors",
+  usuarios: "Utilizadores",
   utilizador: "Utilizador",
   utilizadores: "Utilizadores",
   beneficiario: "Beneficiário",

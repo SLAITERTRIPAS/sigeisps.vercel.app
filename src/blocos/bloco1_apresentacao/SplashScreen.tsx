@@ -7,10 +7,12 @@ export default function SplashScreen({
   user,
   isFirstLogin,
   onFinish,
+  initStatus,
 }: {
   user: any;
   isFirstLogin: boolean;
   onFinish: () => void;
+  initStatus?: string;
 }) {
   const [phase, setPhase] = useState<"loading" | "welcome">("loading");
   const [progress, setProgress] = useState(0);
@@ -171,7 +173,7 @@ export default function SplashScreen({
               transition={{ delay: 0.1 }}
             >
               <p className="font-black text-2xl tracking-[0.4em] animate-pulse text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-orange-600">
-                Processando...
+                {initStatus || "Processando..."}
               </p>
             </motion.div>
           </motion.div>

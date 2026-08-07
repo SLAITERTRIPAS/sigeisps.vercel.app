@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Book, Building, FlaskConical, Wrench, Plus, Trash2, Edit3, CheckCircle, XCircle } from "lucide-react";
 import { firestoreService } from "../../lib/firestoreService";
 import RegistarMateriaisBensForm from "../bloco8_gerais/RegistarMateriaisBensForm";
+import { isSuperBossUser } from "../../lib/auth";
 
 export default function DisciplinasEspacosFisicosView({
   user,
@@ -56,11 +57,13 @@ export default function DisciplinasEspacosFisicosView({
   };
 
   const userDept = user?.departamento || user?.title || "";
+  const isAdmin = isSuperBossUser(user);
+  
   const matchingDept = Object.keys(departamentoCursosMap).find(d => userDept.includes(d) || d.includes(userDept));
   const defaultDept = matchingDept || "Departamento de Engenharia Eletrotécnica";
   const defaultCurso = departamentoCursosMap[defaultDept]?.[0] || "Engenharia Elétrica";
 
-  const displayedDisciplinas = matchingDept
+  const displayedDisciplinas = (matchingDept && !isAdmin)
     ? disciplinasList.filter(d => d.departamento === matchingDept)
     : disciplinasList;
 

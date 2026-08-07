@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, ReactNode, Component } from "react";
+import React, { useState, useEffect, useCallback, ReactNode, Component } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   X,
@@ -49,6 +49,7 @@ import {
   classifyTipo,
   mergeColaboradores,
   getCircularReplacer,
+  safeJSONStringify,
 } from "./lib/utils";
 
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
@@ -67,8 +68,20 @@ import { auth, db } from "./lib/firebase";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 export { ErrorBoundary };
 
+interface NavigationSnapshot {
+  view: string;
+  dashboardTitle: string;
+  subMenuStack: {
+    title: string;
+    items: { title: string; subItems?: { title: string }[] }[];
+  }[];
+  dashboardActiveItem?: string | undefined;
+  dashboardItems?: any[];
+}
+
 export default function App() {
   const [showSplash, setShowSplash] = useState(false);
+  const [historyStack, setHistoryStack] = useState<NavigationSnapshot[]>([]);
   const [view, setView] = useState<
     | "home"
     | "login"
@@ -269,15 +282,16 @@ export default function App() {
         console.warn("Auth initialization timed out, forcing ready state.");
         setAuthReady(true);
         setBootComplete(true);
+        setInitStatus("Pronto.");
       }
-    }, 8000);
+    }, 4000); // Reduzido para 4 segundos para resposta mais rápida
 
     const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
-        setInitStatus("Autenticação detectada...");
+        setInitStatus("A carregar sistema...");
         
         if (!firebaseUser) {
-          setInitStatus("A preparar acesso anónimo...");
+          setInitStatus("A preparar acesso...");
           try {
             const stored = localStorage.getItem("sigep_logged_in_user");
             if (!stored) {
@@ -292,8 +306,16 @@ export default function App() {
           return;
         }
 
-        setInitStatus("A recuperar perfil do utilizador...");
-        let initialUser = firebaseUser;
+        setInitStatus("A carregar perfil...");
+        // Define um objeto de usuário básico seguro inicialmente
+        const initialUser = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : "Utilizador"),
+          role: "Utilizador",
+          status: "Ativo"
+        };
         setUser(initialUser);
 
         // Removida a restauração automática da vista para garantir que o sistema
@@ -362,13 +384,13 @@ export default function App() {
 
         const usersRef = collection(db, "users");
 
-        // 1. Admin/Proprietário account (Manter apenas para acesso do proprietário)
+        // 1. Admin/Proprietário account (SLAITER TRIPAS)
         const adminData = {
-          name: "FRANZISSI TRIPALONGA",
+          name: "SLAITER TRIPAS",
           email: "slaitertripas@gmail.com",
           usuario: "slaitertripas@gmail.com",
           role: "Admin",
-          efetivo: false, // Não faz parte da lista de efetivo geral
+          efetivo: false,
           isOwner: true,
           mustChangePassword: false,
           password: "231383",
@@ -382,7 +404,7 @@ export default function App() {
 
         if (snapAdmin.empty) {
           console.log(
-            "Semeando Administrador FRANZISSI TRIPALONGA no Firestore...",
+            "Semeando Administrador SLAITER TRIPAS no Firestore...",
           );
           const docRef = doc(db, "users", "ST108164611");
           await setDoc(
@@ -390,44 +412,8 @@ export default function App() {
             { ...adminData, createdAt: new Date().toISOString() },
             { merge: true },
           );
-        } else {
-          const docId = snapAdmin.docs[0].id;
-          await updateDoc(doc(db, "users", docId), adminData);
         }
-
-        // 2. Colaborador account (FRANZISSI como colaborador comum, mas não efetivo)
-        const colUserData = {
-          name: "FRANZISSI TRIPALONGA",
-          email: "fttripas@gmail.com",
-          usuario: "fttripas@gmail.com",
-          role: "CTA",
-          efetivo: false, // Não faz parte da lista de efetivo geral conforme solicitação
-          isOwner: false,
-          mustChangePassword: false,
-          password: "231383",
-        };
-
-        const qColUser = query(
-          usersRef,
-          where("email", "==", "fttripas@gmail.com"),
-        );
-        const snapColUser = await getDocs(qColUser);
-
-        if (snapColUser.empty) {
-          console.log(
-            "Semeando Colaborador FRANZISSI TRIPALONGA no Firestore...",
-          );
-          const docRef = doc(db, "users", "ST_Colaborador_108164611");
-          await setDoc(
-            docRef,
-            { ...colUserData, createdAt: new Date().toISOString() },
-            { merge: true },
-          );
-        } else {
-          const docId = snapColUser.docs[0].id;
-          await updateDoc(doc(db, "users", docId), colUserData);
-        }
-
+        
         // 3. Garantir acesso prioritário ao programador e administradores
         if (user) {
           const isDeveloper = user.email === "slaitertripas@gmail.com";
@@ -442,7 +428,7 @@ export default function App() {
             );
             const updatedUser = { ...user, status: "Afetado" };
             setUser(updatedUser);
-            localStorage.setItem("sigep_user", JSON.stringify(updatedUser, getCircularReplacer()));
+            localStorage.setItem("sigep_user", safeJSONStringify(updatedUser));
 
             // Tentar atualizar no Firestore também
             const q = query(usersRef, where("email", "==", user.email || ""));
@@ -465,17 +451,28 @@ export default function App() {
     seedData();
   }, [authReady]);
 
+  // Sincronização automática de dados locais pendentes ao iniciar o sistema
   useEffect(() => {
-    if (user && user.id) {
+    if (authReady) {
+      const syncTimer = setTimeout(() => {
+        firestoreService.syncAllLocalData().catch((err) => {
+          console.warn("Erro na sincronização automática inicial:", err);
+        });
+      }, 5000); // Aguarda 5 segundos para não sobrecarregar o boot inicial
+      return () => clearTimeout(syncTimer);
+    }
+  }, [authReady]);
+
+  useEffect(() => {
+    if (user && user.id && user.email) {
       try {
-        // Create a sanitized version of the user object for storage
-        // This ensures we only save plain data and avoid circular references from SDK objects
+        // Persistir apenas se for um usuário real
+        localStorage.setItem("sigep_last_user_email", user.email);
       } catch (e) {
         console.warn("Failed to persist user data:", e);
       }
-    } else if (!user) {
     }
-  }, [user]);
+  }, [user?.email, user?.id]);
 
   // Track Active Session (Heartbeat)
   useEffect(() => {
@@ -851,6 +848,7 @@ export default function App() {
     }
 
     setShowSplash(true);
+    setHistoryStack([]);
 
     // Redirecionamento automático baseado na alocação do utilizador
     const isAdmin = isSuperBossUser(userData);
@@ -952,6 +950,7 @@ export default function App() {
     setUser(null);
     localStorage.removeItem("sigep_current_view");
     setSubMenuStack([]);
+    setHistoryStack([]);
     setView("home");
   };
 
@@ -1056,13 +1055,49 @@ export default function App() {
     }
   };
 
+  const pushCurrentToHistory = useCallback(() => {
+    setHistoryStack((prev) => {
+      const currentSnapshot: NavigationSnapshot = {
+        view,
+        dashboardTitle,
+        subMenuStack: [...subMenuStack],
+        dashboardActiveItem,
+        dashboardItems: dashboardItems ? [...dashboardItems] : [],
+      };
+      const last = prev[prev.length - 1];
+      if (
+        last &&
+        last.view === currentSnapshot.view &&
+        last.dashboardTitle === currentSnapshot.dashboardTitle &&
+        last.subMenuStack.length === currentSnapshot.subMenuStack.length &&
+        last.dashboardActiveItem === currentSnapshot.dashboardActiveItem
+      ) {
+        return prev;
+      }
+      return [...prev, currentSnapshot];
+    });
+    try {
+      window.history.pushState({ sigepNav: true }, "");
+    } catch (e) {
+      // Ignore
+    }
+  }, [view, dashboardTitle, subMenuStack, dashboardActiveItem, dashboardItems]);
+
+  const handleSetView = useCallback((newView: typeof view) => {
+    if (newView !== view) {
+      pushCurrentToHistory();
+      setView(newView);
+    }
+  }, [view, pushCurrentToHistory]);
+
   const handleEventClick = () => {
+    pushCurrentToHistory();
     setView("event_detail");
   };
 
   const handleBackFromEvent = () => {
     setSelectedEvent(null);
-    setView("home");
+    goBack();
   };
 
   const isCourse = (title: string) => {
@@ -1083,6 +1118,8 @@ export default function App() {
     title: string,
     items: { title: string; subItems?: { title: string }[] }[],
   ) => {
+    pushCurrentToHistory();
+
     const currentSubMenu =
       subMenuStack.length > 0 ? subMenuStack[subMenuStack.length - 1] : null;
     if (
@@ -1192,8 +1229,24 @@ export default function App() {
     }
   };
 
-  const goBack = () => {
+  const goBack = useCallback(() => {
     setDashboardActiveItem(undefined);
+
+    if (historyStack.length > 0) {
+      const prevSnapshot = historyStack[historyStack.length - 1];
+      setHistoryStack((prev) => prev.slice(0, -1));
+
+      setView(prevSnapshot.view as any);
+      setDashboardTitle(prevSnapshot.dashboardTitle || "");
+      setSubMenuStack(prevSnapshot.subMenuStack || []);
+      setDashboardActiveItem(prevSnapshot.dashboardActiveItem);
+      if (prevSnapshot.dashboardItems) {
+        setDashboardItems(prevSnapshot.dashboardItems);
+      }
+      return;
+    }
+
+    // Fallback estrutural se a pilha de histórico estiver vazia
     if (view === "dashboard") {
       if (subMenuStack.length > 0) {
         setView("submenu");
@@ -1247,10 +1300,21 @@ export default function App() {
             : "home",
         );
       }
+    } else {
+      setView("home");
     }
-  };
+  }, [historyStack, view, subMenuStack, dashboardTitle]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      goBack();
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [goBack]);
 
   const handleBreadcrumbClick = (index: number, crumbText: string) => {
+    pushCurrentToHistory();
     if (crumbText === "Menu principal" || index === 0) {
       setSubMenuStack([]);
       setView("menu");
@@ -1400,10 +1464,11 @@ export default function App() {
                 user={extendedUser}
                 colaboradores={colaboradores}
                 onBack={goBack}
-                showBack={isSuperBossUser(extendedUser)}
+                showBack={historyStack.length > 0 || (view !== "menu" && view !== "login" && view !== "home")}
                 onBreadcrumbClick={handleBreadcrumbClick}
                 onLogout={handleLogout}
                 onOpenMessages={() => {
+                  pushCurrentToHistory();
                   setDashboardTitle("Caixa de Mensagens");
                   setView("dashboard");
                 }}
@@ -1423,6 +1488,7 @@ export default function App() {
 
             <div className="flex-grow relative flex flex-col min-h-0 overflow-y-auto mt-0">
               <ViewRenderer
+                bootComplete={bootComplete}
                 view={view}
                 user={user}
                 extendedUser={extendedUser}
@@ -1441,7 +1507,7 @@ export default function App() {
                 openSubMenu={openSubMenu}
                 currentSubMenu={currentSubMenu}
                 onShowAlert={handleShowAlert}
-                onSetView={setView}
+                onSetView={handleSetView}
                 matrixActivities={matrixActivities}
                 suppliers={suppliers}
                 dashboardActiveItem={dashboardActiveItem}
@@ -1450,6 +1516,7 @@ export default function App() {
                 financialData={financialData}
                 setFinancialData={setFinancialData}
                 onNavigate={(title, items) => {
+                  pushCurrentToHistory();
                   setDashboardTitle(title);
                   setDashboardItems(items);
                   setView("dashboard");

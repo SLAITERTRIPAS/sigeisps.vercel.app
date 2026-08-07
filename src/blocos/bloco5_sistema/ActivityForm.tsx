@@ -59,6 +59,7 @@ import {
   convertToYYYYMMDD,
   getDistanciaSongo,
   getCircularReplacer,
+  safeJSONStringify,
 } from "../../lib/utils";
 
 import SearchableSelect from "../../components/ui/SearchableSelect";
@@ -704,7 +705,7 @@ export default function ActivityForm({
       };
 
       // Immediate Local Backup
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData, getCircularReplacer()));
+      localStorage.setItem(DRAFT_KEY, safeJSONStringify(draftData));
 
       // Debounced Cloud Sync
       const timeoutId = setTimeout(() => {

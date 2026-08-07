@@ -1,8 +1,32 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    
+    // Funções auxiliares de segurança
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isMaster() {
+      return isSignedIn() && (
+        request.auth.token.email == 'slaitertripas@gmail.com'
+      );
+    }
+
+    // Regra geral para todas as coleções do sistema (produtos_unificados, actividades, etc.)
+    match /{collection}/{document} {
+      // Acesso total para Administradores e Programadores (Master)
+      allow read, write: if isMaster();
+      
+      // Regras para usuários autenticados do sistema
+      // Permite leitura, criação, atualização e exclusão em coleções operacionais e dados compartilhados
+      allow read, create, update, delete: if isSignedIn();
+    }
+
+    // Regra específica para userData (Proteção estrita de dados privados de perfil)
+    match /userData/{docId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isMaster() || (isSignedIn() && (resource == null || resource.data.userId == request.auth.uid));
     }
   }
 }

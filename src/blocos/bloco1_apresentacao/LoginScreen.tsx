@@ -118,8 +118,8 @@ const findLocalUser = (lowerInput: string, inputPass?: string) => {
   ) {
     return {
       id: "slaitertripas@gmail.com",
-      nome: "FRANZISSI TRIPALONGA",
-      name: "FRANZISSI TRIPALONGA",
+      nome: "SLAITER TRIPAS",
+      name: "SLAITER TRIPAS",
       email: "slaitertripas@gmail.com",
       role: "Administrador do Sistema",
       cargo: "Proprietário e Programador do Sistema",

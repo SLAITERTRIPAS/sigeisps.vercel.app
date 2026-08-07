@@ -143,7 +143,7 @@ export const ViewRenderer: React.FC<ViewRendererProps> = ({
   activities = [],
 }) => {
   if (!bootComplete) {
-    return <SplashScreen user={extendedUser} isFirstLogin={false} onFinish={onBootComplete} />;
+    return <SplashScreen user={extendedUser} isFirstLogin={false} onFinish={onBootComplete} initStatus={initStatus} />;
   }
 
   if (view === "home") {
@@ -335,7 +335,7 @@ export const ViewRenderer: React.FC<ViewRendererProps> = ({
           bookRegistrations={bookRegistrations}
           notes={notes}
           onDeleteNote={onDeleteNote}
-          user={extendedUser}
+          user={extendedUser || user}
           colaboradores={colaboradores}
           onShowAlert={onShowAlert}
           initialActiveItem={dashboardActiveItem}

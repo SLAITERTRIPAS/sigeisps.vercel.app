@@ -34,7 +34,9 @@ import {
   BookOpen,
   Download,
   LayoutGrid,
+  Sparkles,
 } from "lucide-react";
+import { IntelligentDiagnosticsView } from "./IntelligentDiagnosticsView";
 import CalendarView from "../bloco5_sistema/CalendarView";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
@@ -415,7 +417,7 @@ export default function SistemaView({
       }
 
       if (format === "json") {
-        const dataStr = JSON.stringify(fullDatabase, getCircularReplacer(), 2);
+        const dataStr = safeJSONStringify(fullDatabase, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -532,10 +534,11 @@ export default function SistemaView({
       .includes("chefe de repartição de pessoal");
 
   const menuItems = [
+    { title: "Diagnóstico & Autocura", icon: Sparkles, hidden: !canManageUsers },
     { title: "Centro de Mensagens", icon: MessageSquare },
     { title: "Sessões Ativas", icon: UserCheck, hidden: !canManageUsers },
-    { title: "Log de Actividade", icon: Clock },
-    { title: "Gestão de Utilizadors", icon: Users, hidden: !canManageUsers },
+    { title: "Log de Atividade", icon: Clock },
+    { title: "Gestão de Utilizadores", icon: Users, hidden: !canManageUsers },
     { title: "Gestão de Produtos e Preços", icon: Box, hidden: !canManageUsers },
     { title: "Histórico de Chefias", icon: Clock },
     { title: "Atualização", icon: Zap, hidden: !canManageUsers },
@@ -640,7 +643,7 @@ export default function SistemaView({
     const protectedLabels = [
       "Funcionários e Colaboradores",
       "Estudantes e Turmas",
-      "Gestão de Utilizadors",
+      "Gestão de Utilizadores",
     ];
 
     try {
@@ -807,6 +810,8 @@ export default function SistemaView({
 
   const renderContent = () => {
     switch (activeItem) {
+      case "Diagnóstico & Autocura":
+        return <IntelligentDiagnosticsView />;
       case "Centro de Mensagens":
         return (
           <CaixaMensagensView
@@ -832,7 +837,9 @@ export default function SistemaView({
             onSeedCollaborators={handleSeedCollaborators}
           />
         );
+      case "Gestão de Utilizadores":
       case "Gestão de Utilizadors":
+      case "Gestão de Utilizador":
         return (
           <UserManagementView
             currentUser={user}
@@ -843,20 +850,13 @@ export default function SistemaView({
         return <GestaoProdutosPrecosView />;
       case "Histórico de Chefias":
         return <HistoricoChefiasView />;
-      case "Gestão de Utilizador":
-        return (
-          <UserManagementView
-            currentUser={user}
-            onRegistarClick={() => setActiveItem("Registar")}
-          />
-        ); // Backwards compatibility if state persists
       case "Registar":
         return (
           <div className="max-w-5xl mx-auto pt-8">
             <SystemRegistrationForm
               currentUser={user}
-              onCancel={() => setActiveItem("Gestão de Utilizadors")}
-              onSubmit={() => setActiveItem("Gestão de Utilizadors")}
+              onCancel={() => setActiveItem("Gestão de Utilizadores")}
+              onSubmit={() => setActiveItem("Gestão de Utilizadores")}
             />
           </div>
         );
@@ -1134,6 +1134,7 @@ export default function SistemaView({
             title="Sistema"
           />
         );
+      case "Log de Atividade":
       case "Log de Actividade":
         return <RecentActivityLog colaboradores={colaboradores} />;
       case "Atualização":
@@ -1349,7 +1350,7 @@ export default function SistemaView({
             color: "bg-cyan-600",
           },
           {
-            label: "Gestão de Utilizadors",
+            label: "Gestão de Utilizadores",
             collections: ["users"],
             icon: ShieldCheck,
             color: "bg-gray-800",

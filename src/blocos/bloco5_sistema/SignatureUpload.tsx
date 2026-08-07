@@ -219,7 +219,7 @@ export default function SignatureUpload({
                 onClick={() => setActiveTab("all")}
                 className={`flex-1 py-3 text-center border-b-2 transition-all ${activeTab === "all" ? "border-blue-900 text-blue-900 bg-white" : "border-transparent hover:text-slate-800"} flex items-center justify-center gap-1.5`}
               >
-                <Database size={12} /> Outros Setores / Utilizadors
+                <Database size={12} /> Outros Setores / Utilizadores
               </button>
             </div>
 

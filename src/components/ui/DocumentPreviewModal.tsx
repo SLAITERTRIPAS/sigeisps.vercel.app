@@ -17,6 +17,7 @@ import {
   Eye,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { openPrintDocumentWindow } from "../../lib/printUtils";
 
 export interface DocumentFile {
   name: string;
@@ -120,7 +121,25 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
         window.print();
       }
     } else {
-      window.print();
+      const modalDocContent = `
+        <div style="font-family: serif; padding: 20px;">
+          <h2 style="text-align: center; color: #1e3a8a; text-transform: uppercase;">Instituto Superior Politécnico de Songo</h2>
+          <p style="text-align: center; font-weight: bold; color: #64748b;">Secretaria Geral / Processo Individual</p>
+          <hr style="margin: 20px 0; border: 1px solid #0f172a;" />
+          <p><strong>Ficheiro:</strong> ${fileName}</p>
+          <p><strong>Nº do Processo:</strong> ${processNo || "ISPS/001/2026"}</p>
+          <p><strong>Titular:</strong> ${collaboratorName || "Não especificado"}</p>
+          <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border: 1px border-dashed #cbd5e1; border-radius: 8px;">
+            <p>Atesta-se que este documento foi registado e autenticado digitalmente na Secretaria Geral do ISPS.</p>
+          </div>
+        </div>
+      `;
+      openPrintDocumentWindow({
+        title: fileName,
+        contentHtml: modalDocContent,
+        orientation: "auto",
+        pageSize: "auto",
+      });
     }
   };
 

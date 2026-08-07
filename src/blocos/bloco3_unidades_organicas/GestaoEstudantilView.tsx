@@ -40,57 +40,6 @@ interface AtendimentoEstudantil {
   observacoes?: string;
 }
 
-const SEED_ATENDIMENTOS: AtendimentoEstudantil[] = [
-  {
-    estudanteNome: "Mariquela Bernardo Simango",
-    raCodigo: "ISPS-2023-145",
-    curso: "Engenharia Termotécnica",
-    categoriaServico: "Declaração de Frequência",
-    urgencia: "Alta",
-    status: "Pendente",
-    descricao: "Necessita de declaração militar urgente para o recenseamento.",
-  },
-  {
-    estudanteNome: "Anselmo Marcelino Coanai",
-    raCodigo: "ISPS-2022-098",
-    curso: "Engenharia Agro-processamento",
-    categoriaServico: "Certificado de Notas",
-    urgencia: "Média",
-    status: "Em Processamento",
-    descricao:
-      "Requerimento de notas dos primeiros 3 semestres para candidatura de estágio.",
-  },
-  {
-    estudanteNome: "Fátima Ismael Langa",
-    raCodigo: "ISPS-2024-002",
-    curso: "Engenharia Termotécnica",
-    categoriaServico: "Reclamação de Nota",
-    urgencia: "Alta",
-    status: "Pendente",
-    descricao:
-      "Reclamação de nota da disciplina de Física II em falta na pauta de exames.",
-  },
-  {
-    estudanteNome: "Carlos Bernardo Mucavel",
-    raCodigo: "ISPS-2021-310",
-    curso: "Engenharia Termotécnica",
-    categoriaServico: "Pedido de Isenção",
-    urgencia: "Baixa",
-    status: "Concluído",
-    descricao: "Pedido de redução de taxa de reinscrição deferido pelo DAE.",
-  },
-  {
-    estudanteNome: "Gildo Ricardo Mucavel",
-    raCodigo: "ISPS-2022-094",
-    curso: "Engenharia Termotécnica",
-    categoriaServico: "Reintegração/Matrícula",
-    urgencia: "Média",
-    status: "Concluído",
-    descricao:
-      "Reincorporação pós trancamento de matrícula no semestre passado.",
-  },
-];
-
 export default function GestaoEstudantilView({
   user,
   onBack,
@@ -128,18 +77,7 @@ export default function GestaoEstudantilView({
   useEffect(() => {
     const unsubscribe = firestoreService.atendimentos_estudantis.subscribe(
       async (data: any[]) => {
-        if (data.length === 0) {
-          // Hydrate seed data
-          for (const sa of SEED_ATENDIMENTOS) {
-            const payload = {
-              ...sa,
-              dataCriacao: new Date().toISOString().split("T")[0],
-            };
-            await firestoreService.atendimentos_estudantis.add(payload);
-          }
-        } else {
-          setAtendimentos(data);
-        }
+        setAtendimentos(data);
         setLoading(false);
       },
     );

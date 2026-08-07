@@ -42,6 +42,7 @@ import {
   Folder,
   Users,
   Layers,
+  Inbox,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { motion, AnimatePresence } from "motion/react";
@@ -3042,6 +3043,46 @@ export default function PlanoWorkflowView({
     }
   };
 
+  const handleUnifyDirectionPlan = async () => {
+    const userDir = user?.direcao || "";
+    const canonicalUserDir = getCanonicalDirection(userDir);
+
+    const subordinateActs = rawActivities.filter((a) => {
+      if (Number(a.ano || 2026) !== Number(selectedYear)) return false;
+      const canonicalActDir = getCanonicalDirection(a.direcao);
+      if (canonicalActDir !== canonicalUserDir) return false;
+      return (a.status as any) === "departamento";
+    });
+
+    if (subordinateActs.length === 0) {
+      alert(
+        "Nenhuma atividade de departamento pendente para unificar no plano da direção.",
+      );
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await Promise.all(
+        subordinateActs.map((act) =>
+          firestoreService.matrixActivities.update(act.id, {
+            status: "direcao",
+            direcao: user?.direcao || "Direção",
+          }),
+        ),
+      );
+      onShowAlert(
+        `Sucesso! ${subordinateActs.length} atividades dos departamentos foram unificadas no plano da direção.`,
+      );
+      setShowReceivedPlans(false);
+    } catch (err) {
+      console.error(err);
+      alert("Ocorreu um erro ao unificar o plano da direção.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getCanonicalDirection = (dirStr: string): string => {
     const d = (dirStr || "").toLowerCase();
     if (d.includes("geral") || d.includes("gabinete") || d === "gdg" || d === "dg") return "Gabinete do Diretor-Geral";
@@ -4816,7 +4857,39 @@ export default function PlanoWorkflowView({
                 />
 
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6 border-b-2 border-slate-100 pb-3">
-                  {/* Título ou filtros se necessário */}
+                  <div className="flex bg-slate-100 p-1 rounded-2xl print:hidden">
+                    <button
+                      onClick={() => setShowReceivedPlans(false)}
+                      className={`px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${!showReceivedPlans ? "bg-slate-900 text-white shadow-lg" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                    >
+                      Meu Plano de Direção
+                    </button>
+                    <button
+                      onClick={() => setShowReceivedPlans(true)}
+                      className={`px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center gap-2 ${showReceivedPlans ? "bg-blue-600 text-white shadow-lg shadow-blue-200" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                    >
+                      <Inbox size={16} /> Planos Recebidos
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {!showReceivedPlans && !isReadOnly && (
+                      <button
+                        onClick={handleSendDirecaoToPlanificacao}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-md shadow-emerald-200"
+                      >
+                        <Send size={14} /> Enviar à Planificação
+                      </button>
+                    )}
+                    {showReceivedPlans && !isReadOnly && (
+                      <button
+                        onClick={handleUnifyDirectionPlan}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-md shadow-blue-200"
+                      >
+                        <Layers size={14} /> Unificar Planos
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Bloco de Cabeçalho Oficial da Direção Conforme Imagem Solicitada */}
@@ -4938,134 +5011,234 @@ export default function PlanoWorkflowView({
 
                 {/* Grouped by Department */}
                 <div className="space-y-6">
-                  {departmentsForThisDirection.map((dept) => {
-                    const deptActs = filteredActivities.filter(
-                      (a) =>
-                        (a.departamento || "").toLowerCase() ===
-                          dept.toLowerCase() ||
-                        (a.departamento || "")
-                          .toUpperCase()
-                          .includes(dept.toUpperCase()) ||
-                        dept
-                          .toUpperCase()
-                          .includes((a.departamento || "").toUpperCase()),
-                    );
-                    const deptBudget = deptActs.reduce(
-                      (acc, a) => acc + getActivityTotal(a),
-                      0,
-                    );
+                  {showReceivedPlans ? (
+                    /* Planos Recebidos (Activities in status: departamento) */
+                    <div className="space-y-6">
+                      <div className="bg-blue-50 border border-blue-200 p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div>
+                          <h4 className="text-sm font-black text-blue-900 uppercase">
+                            Planos dos Departamentos Subordinados
+                          </h4>
+                          <p className="text-xs text-blue-700 mt-0.5">
+                            Estes são os planos enviados pelos chefes de departamento. Clique em "Unificar" para agregá-los ao plano oficial da direção.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleUnifyDirectionPlan}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shrink-0 shadow-md shadow-blue-200"
+                        >
+                          <Layers size={14} /> Unificar Planos Recebidos
+                        </button>
+                      </div>
 
-                    return (
-                      <div
-                        key={dept}
-                        className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm"
-                      >
-                        <div className="p-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-black uppercase tracking-wide">
-                              {dept}
-                            </span>
-                            <span className="text-[10px] font-mono font-black text-emerald-300 bg-emerald-950/80 px-2.5 py-1 rounded-md border border-emerald-500/30">
-                              Orçamento:{" "}
-                              {deptBudget.toLocaleString("pt-MZ", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}{" "}
-                              MZN
+                      {departmentsForThisDirection.map((dept) => {
+                        const deptActs = rawActivities.filter((a) => {
+                          if (Number(a.ano || 2026) !== Number(selectedYear)) return false;
+                          const canonicalActDir = getCanonicalDirection(a.direcao);
+                          const canonicalUserDir = getCanonicalDirection(user?.direcao || "");
+                          if (canonicalActDir !== canonicalUserDir) return false;
+                          
+                          const isMatchDept = (a.departamento || "").toLowerCase() === dept.toLowerCase() ||
+                                             (a.departamento || "").toUpperCase().includes(dept.toUpperCase()) ||
+                                             dept.toUpperCase().includes((a.departamento || "").toUpperCase());
+                          
+                          return isMatchDept && (a.status as any) === "departamento";
+                        });
+
+                        return (
+                          <div
+                            key={dept}
+                            className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm"
+                          >
+                            <div className="p-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                              <span className="text-sm font-black text-slate-800 uppercase tracking-wide">
+                                {dept}
+                              </span>
+                              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                                {deptActs.length} {deptActs.length === 1 ? "Atividade Pendente" : "Atividades Pendentes"}
+                              </span>
+                            </div>
+
+                            <div className="overflow-x-auto print:overflow-visible border border-slate-200 rounded-3xl shadow-sm mb-3">
+                              <table className="w-full text-left border-collapse min-w-[1900px] print:min-w-full font-sans text-xs print-table-compact">
+                                <ActivityTableHeader isDPEP={isDPEP} />
+                                <tbody className="divide-y divide-slate-200 text-slate-700 font-medium whitespace-nowrap">
+                                  {deptActs.map((activity, idx) => (
+                                    <ActivityTableRow
+                                      key={activity.id}
+                                      activity={activity}
+                                      onViewHistory={setActivityForHistory}
+                                      index={idx}
+                                      isDPEP={isDPEP}
+                                      user={user}
+                                      isBossOrAdmin={isBossOrAdmin}
+                                      getActivityTotal={getActivityTotal}
+                                      onUpdateExecution={onUpdateExecution}
+                                      onUpdateRelatorio={onUpdateRelatorio}
+                                      actions={
+                                        <div className="flex justify-center items-center gap-2">
+                                          <button
+                                            onClick={() => {
+                                              setEditingActivity(activity);
+                                              setShowAddForm(true);
+                                            }}
+                                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded"
+                                            title="Visualizar"
+                                          >
+                                            <Eye size={13} />
+                                          </button>
+                                        </div>
+                                      }
+                                    />
+                                  ))}
+                                  {deptActs.length === 0 && (
+                                    <tr>
+                                      <td
+                                        colSpan={37}
+                                        className="p-6 text-center text-slate-400 text-xs italic font-medium"
+                                      >
+                                        Nenhuma atividade pendente para este departamento.
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Plano da Direção (Activities already in status: direcao or above) */
+                    departmentsForThisDirection.map((dept) => {
+                      const deptActs = filteredActivities.filter(
+                        (a) =>
+                          (a.departamento || "").toLowerCase() ===
+                            dept.toLowerCase() ||
+                          (a.departamento || "")
+                            .toUpperCase()
+                            .includes(dept.toUpperCase()) ||
+                          dept
+                            .toUpperCase()
+                            .includes((a.departamento || "").toUpperCase()),
+                      );
+                      const deptBudget = deptActs.reduce(
+                        (acc, a) => acc + getActivityTotal(a),
+                        0,
+                      );
+
+                      return (
+                        <div
+                          key={dept}
+                          className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm"
+                        >
+                          <div className="p-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-black uppercase tracking-wide">
+                                {dept}
+                              </span>
+                              <span className="text-[10px] font-mono font-black text-emerald-300 bg-emerald-950/80 px-2.5 py-1 rounded-md border border-emerald-500/30">
+                                Orçamento:{" "}
+                                {deptBudget.toLocaleString("pt-MZ", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}{" "}
+                                MZN
+                              </span>
+                            </div>
+                            <span className="text-xs font-bold text-amber-400 bg-white/10 px-3 py-1 rounded-full">
+                              {deptActs.length}{" "}
+                              {deptActs.length === 1 ? "Atividade" : "Atividades"}
                             </span>
                           </div>
-                          <span className="text-xs font-bold text-amber-400 bg-white/10 px-3 py-1 rounded-full">
-                            {deptActs.length}{" "}
-                            {deptActs.length === 1 ? "Atividade" : "Atividades"}
-                          </span>
-                        </div>
 
-                        <div className="overflow-x-auto print:overflow-visible border border-slate-200 rounded-3xl shadow-sm mb-3" data-print-type="plano">
-                          <table className="w-full text-left border-collapse min-w-[1900px] print:min-w-full font-sans text-xs print-table-compact">
-                            <ActivityTableHeader isDPEP={isDPEP} />
-                            <tbody className="divide-y divide-slate-200 text-slate-700 font-medium whitespace-nowrap">
-                              {deptActs.map((activity, idx) => (
-                                <ActivityTableRow
-                                  key={activity.id}
-                                  activity={activity}
-                                  onViewHistory={setActivityForHistory}
-                                  index={idx}
-                                  isDPEP={isDPEP}
-                                  user={user}
-                                  isBossOrAdmin={isBossOrAdmin}
-                                  getActivityTotal={getActivityTotal}
-                                  onUpdateExecution={onUpdateExecution}
-                                  onUpdateRelatorio={onUpdateRelatorio}
-                                  actions={
-                                    !canEdit(activity) ? (
-                                      <div className="flex justify-center items-center gap-2">
-                                        <Lock
-                                          size={12}
-                                          className="text-slate-400"
-                                        />
-                                        <button
-                                          onClick={() => {
-                                            setEditingActivity(activity);
-                                            setShowAddForm(true);
-                                          }}
-                                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded"
-                                          title="Visualizar"
-                                        >
-                                          <Eye size={13} />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleDelete(activity.id)
-                                          }
-                                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded"
-                                          title="Remover"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <div className="flex justify-center gap-1">
-                                        <button
-                                          onClick={() => {
-                                            setEditingActivity(activity);
-                                            setShowAddForm(true);
-                                          }}
-                                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded"
-                                          title="Editar"
-                                        >
-                                          <Edit2 size={13} />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleDelete(activity.id)
-                                          }
-                                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded"
-                                          title="Remover"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
-                                      </div>
-                                    )
-                                  }
-                                />
-                              ))}
-                              {deptActs.length === 0 && (
-                                <tr>
-                                  <td
-                                    colSpan={37}
-                                    className="p-6 text-center text-slate-400 text-xs italic font-medium"
-                                  >
-                                    Nenhum plano departamental recebido para
-                                    este departamento.
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
+                          <div className="overflow-x-auto print:overflow-visible border border-slate-200 rounded-3xl shadow-sm mb-3" data-print-type="plano">
+                            <table className="w-full text-left border-collapse min-w-[1900px] print:min-w-full font-sans text-xs print-table-compact">
+                              <ActivityTableHeader isDPEP={isDPEP} />
+                              <tbody className="divide-y divide-slate-200 text-slate-700 font-medium whitespace-nowrap">
+                                {deptActs.map((activity, idx) => (
+                                  <ActivityTableRow
+                                    key={activity.id}
+                                    activity={activity}
+                                    onViewHistory={setActivityForHistory}
+                                    index={idx}
+                                    isDPEP={isDPEP}
+                                    user={user}
+                                    isBossOrAdmin={isBossOrAdmin}
+                                    getActivityTotal={getActivityTotal}
+                                    onUpdateExecution={onUpdateExecution}
+                                    onUpdateRelatorio={onUpdateRelatorio}
+                                    actions={
+                                      !canEdit(activity) ? (
+                                        <div className="flex justify-center items-center gap-2">
+                                          <Lock
+                                            size={12}
+                                            className="text-slate-400"
+                                          />
+                                          <button
+                                            onClick={() => {
+                                              setEditingActivity(activity);
+                                              setShowAddForm(true);
+                                            }}
+                                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded"
+                                            title="Visualizar"
+                                          >
+                                            <Eye size={13} />
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              handleDelete(activity.id)
+                                            }
+                                            className="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded"
+                                            title="Remover"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex justify-center gap-1">
+                                          <button
+                                            onClick={() => {
+                                              setEditingActivity(activity);
+                                              setShowAddForm(true);
+                                            }}
+                                            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded"
+                                            title="Editar"
+                                          >
+                                            <Edit2 size={13} />
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              handleDelete(activity.id)
+                                            }
+                                            className="p-1 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded"
+                                            title="Remover"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
+                                        </div>
+                                      )
+                                    }
+                                  />
+                                ))}
+                                {deptActs.length === 0 && (
+                                  <tr>
+                                    <td
+                                      colSpan={37}
+                                      className="p-6 text-center text-slate-400 text-xs italic font-medium"
+                                    >
+                                      Nenhum plano departamental recebido para
+                                      este departamento.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}

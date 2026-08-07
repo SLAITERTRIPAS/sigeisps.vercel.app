@@ -15,7 +15,6 @@ export default function GestaoAcademicaMainView({ title, user, onBack, onShowAle
     { title: "Alocação", icon: ClipboardList },
     { title: "Horário", icon: Clock },
     { title: "Calendário de Exame", icon: BookMarked },
-    { title: "Estudantes", icon: Users },
     { title: "Graduados", icon: GraduationCap },
     { title: "Disciplina", icon: BookOpen },
     { title: "Blocos e Sala de Aula", icon: Building },
@@ -33,8 +32,6 @@ export default function GestaoAcademicaMainView({ title, user, onBack, onShowAle
         return <HorarioView title={title} user={user} />;
       case "Calendário de Exame":
         return <ExamesView user={user} onShowAlert={onShowAlert} />;
-      case "Estudantes":
-        return <GestaoEstudantilView user={user} onBack={onBack} title="Gestão Estudantil" />;
       case "Graduados":
         return <GraduadosView />;
       case "Disciplina":

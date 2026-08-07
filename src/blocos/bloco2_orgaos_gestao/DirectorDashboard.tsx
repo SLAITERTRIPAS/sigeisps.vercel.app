@@ -427,7 +427,20 @@ export default function DirectorDashboard({
       upperTitle.includes("CONSTRUCAO MECANICA");
 
     if (isCourseOrAcademic) {
-      items.push({ title: "Gestão Académica", icon: Users });
+      // Restriction: Only for Course Directors and Chief of General Disciplines Dept. Remove HR Chief.
+      const isAuthorizedAcademic = 
+        upperTitle.includes("DIRETOR DO CURSO") || 
+        upperTitle.includes("DIRETOR DE CURSO") ||
+        upperTitle.includes("DEPARTAMENTO DE DISCIPLINAS GERAIS");
+      
+      if (isAuthorizedAcademic) {
+        items.push({ title: "Gestão Académica", icon: Users });
+      }
+    }
+
+    // Add Gestão Estudantil for DRA / Registo Académico
+    if (upperTitle.includes("DRA") || upperTitle.includes("REGISTO ACADÉMICO") || upperTitle.includes("REGISTO ACADEMICO")) {
+       items.push({ title: "Gestão Estudantil", icon: GraduationCap });
     }
 
     return items;

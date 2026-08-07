@@ -26,6 +26,9 @@ export default function DisciplinasEspacosFisicosView({
     docenteId: "",
     classificacaoExame: "com_exame", // "com_exame" ou "sem_exame"
     semestre: "1º Semestre",
+    nivel: "1º ano",
+    turma: "EE1",
+    cargaSemanal: "12h",
   });
 
   const departamentoCursosMap: Record<string, string[]> = {
@@ -90,17 +93,23 @@ export default function DisciplinasEspacosFisicosView({
         await firestoreService.disciplinas_academicas.add({
           ...formData,
           createdAt: new Date().toISOString(),
+          unidade: user?.unidade || "",
+          direcao: user?.direcao || "",
+          departamento: formData.departamento || user?.departamento || "",
         });
         onShowAlert("Disciplina registada com sucesso!");
       }
       setFormData({
         nome: "",
         codigo: "",
-        departamento: "Departamento de Disciplinas Gerais",
-        curso: "Engenharia Informática",
+        departamento: defaultDept,
+        curso: defaultCurso,
         docenteId: "",
         classificacaoExame: "com_exame",
         semestre: "1º Semestre",
+        nivel: "1º ano",
+        turma: "EE1",
+        cargaSemanal: "12h",
       });
       setShowForm(false);
     } catch (err) {
@@ -118,6 +127,9 @@ export default function DisciplinasEspacosFisicosView({
       docenteId: disc.docenteId || "",
       classificacaoExame: disc.classificacaoExame || "com_exame",
       semestre: disc.semestre || "1º Semestre",
+      nivel: disc.nivel || "1º ano",
+      turma: disc.turma || "",
+      cargaSemanal: disc.cargaSemanal || "4h",
     });
     setEditingId(disc.id);
     setShowForm(true);
@@ -159,15 +171,19 @@ export default function DisciplinasEspacosFisicosView({
         <button
           onClick={() => {
             setEditingId(null);
-            setFormData({
-              nome: "",
-              codigo: "",
-              departamento: defaultDept,
-              curso: defaultCurso,
-              docenteId: "",
-              classificacaoExame: "com_exame",
-              semestre: "1º Semestre",
-            });
+          setFormData({
+            ...formData,
+            nome: "",
+            codigo: "",
+            departamento: defaultDept,
+            curso: defaultCurso,
+            docenteId: "",
+            classificacaoExame: "com_exame",
+            semestre: "1º Semestre",
+            nivel: "1º ano",
+            turma: "EE1",
+            cargaSemanal: "12h",
+          });
             setShowForm(!showForm);
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-sm"
@@ -181,9 +197,92 @@ export default function DisciplinasEspacosFisicosView({
           <h3 className="text-lg font-bold text-blue-900 border-b pb-2">
             {editingId ? "Editar Disciplina" : "Registar Nova Disciplina Académica"}
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Departamento</label>
+              <select
+                value={formData.departamento}
+                disabled={!!matchingDept}
+                onChange={(e) => {
+                  const newDept = e.target.value;
+                  const firstCurso = departamentoCursosMap[newDept]?.[0] || "";
+                  setFormData({ ...formData, departamento: newDept, curso: firstCurso });
+                }}
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-50 disabled:text-slate-800"
+              >
+                <option value="Departamento de Engenharia Eletrotécnica">Departamento de Engenharia Eletrotécnica</option>
+                <option value="Departamento de Engenharia de Construção Civil">Departamento de Engenharia de Construção Civil</option>
+                <option value="Departamento de Engenharia de Construção Mecânica">Departamento de Engenharia de Construção Mecânica</option>
+                <option value="Departamento de Disciplinas Gerais">Departamento de Disciplinas Gerais</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Curso</label>
+              <select
+                value={formData.curso}
+                onChange={(e) => setFormData({ ...formData, curso: e.target.value })}
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                {(departamentoCursosMap[formData.departamento] || []).map((cursoName) => (
+                  <option key={cursoName} value={cursoName}>{cursoName}</option>
+                ))}
+              </select>
+            </div>
+
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Disciplina *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Semestre</label>
+              <select
+                value={formData.semestre}
+                onChange={(e) => setFormData({ ...formData, semestre: e.target.value })}
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="1º Semestre">1º Semestre</option>
+                <option value="2º Semestre">2º Semestre</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Nível</label>
+              <select
+                value={formData.nivel}
+                onChange={(e) => setFormData({ ...formData, nivel: e.target.value })}
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="1º ano">1º ano</option>
+                <option value="2º ano">2º ano</option>
+                <option value="3º ano">3º ano</option>
+                <option value="4º ano">4º ano</option>
+                <option value="5º ano">5º ano</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Turma</label>
+              <input
+                type="text"
+                value={formData.turma}
+                onChange={(e) => setFormData({ ...formData, turma: e.target.value })}
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="Ex: EE1"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Carga Semanal</label>
+              <select
+                value={formData.cargaSemanal}
+                onChange={(e) => setFormData({ ...formData, cargaSemanal: e.target.value })}
+                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="4h">4h</option>
+                <option value="6h">6h</option>
+                <option value="8h">8h</option>
+                <option value="10h">10h</option>
+                <option value="12h">12h</option>
+                <option value="14h">14h</option>
+                <option value="16h">16h</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Nome da Disciplina *</label>
               <input
                 type="text"
                 required
@@ -204,8 +303,8 @@ export default function DisciplinasEspacosFisicosView({
                 placeholder="Ex: Cálculo I"
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Código da Disciplina (Gerado Automaticamente) *</label>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Código da Disciplina (Gerado Automaticamente) *</label>
               <input
                 type="text"
                 required
@@ -215,38 +314,8 @@ export default function DisciplinasEspacosFisicosView({
                 placeholder="Ex: CALC-I"
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Departamento</label>
-              <select
-                value={formData.departamento}
-                disabled={!!matchingDept}
-                onChange={(e) => {
-                  const newDept = e.target.value;
-                  const firstCurso = departamentoCursosMap[newDept]?.[0] || "";
-                  setFormData({ ...formData, departamento: newDept, curso: firstCurso });
-                }}
-                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100 disabled:text-slate-700"
-              >
-                <option value="Departamento de Engenharia Eletrotécnica">Departamento de Engenharia Eletrotécnica</option>
-                <option value="Departamento de Engenharia de Construção Civil">Departamento de Engenharia de Construção Civil</option>
-                <option value="Departamento de Engenharia de Construção Mecânica">Departamento de Engenharia de Construção Mecânica</option>
-                <option value="Departamento de Disciplinas Gerais">Departamento de Disciplinas Gerais</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Curso</label>
-              <select
-                value={formData.curso}
-                onChange={(e) => setFormData({ ...formData, curso: e.target.value })}
-                className="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-              >
-                {(departamentoCursosMap[formData.departamento] || []).map((cursoName) => (
-                  <option key={cursoName} value={cursoName}>{cursoName}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Docente Atribuído</label>
+            <div className="md:col-span-3">
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Docente Atribuído</label>
               <select
                 value={formData.docenteId}
                 onChange={(e) => setFormData({ ...formData, docenteId: e.target.value })}
@@ -259,14 +328,14 @@ export default function DisciplinasEspacosFisicosView({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Classificação para Exame *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1 tracking-tight">Classificação para Exame *</label>
               <select
                 value={formData.classificacaoExame}
                 onChange={(e) => setFormData({ ...formData, classificacaoExame: e.target.value })}
                 className="w-full p-2.5 border border-slate-300 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none bg-blue-50 text-blue-900"
               >
                 <option value="com_exame">📚 Disciplina com Exame</option>
-                <option value="sem_exame">📖 Disciplina sem Exame (Apenas Avaliação Contínua)</option>
+                <option value="sem_exame">📖 Disciplina sem Exame</option>
               </select>
             </div>
           </div>
@@ -305,7 +374,8 @@ export default function DisciplinasEspacosFisicosView({
                 <tr className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b">
                   <th className="p-3">Código</th>
                   <th className="p-3">Nome da Disciplina</th>
-                  <th className="p-3">Curso / Departamento</th>
+                  <th className="p-3">Curso / Dept / Semestre</th>
+                  <th className="p-3">Nível / Turma / Carga</th>
                   <th className="p-3">Docente Atribuído</th>
                   <th className="p-3">Classificação Exame</th>
                   <th className="p-3 text-right">Ações</th>
@@ -322,6 +392,12 @@ export default function DisciplinasEspacosFisicosView({
                       <td className="p-3">
                         <div className="font-semibold text-slate-800">{disc.curso}</div>
                         <div className="text-[10px] text-slate-500">{disc.departamento}</div>
+                        <div className="text-[10px] text-blue-600 font-bold">{disc.semestre}</div>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-semibold text-slate-800">{disc.nivel || "N/A"}</div>
+                        <div className="text-[10px] text-slate-500">{disc.turma || "N/A"}</div>
+                        <div className="text-[10px] text-indigo-600 font-bold">{disc.cargaSemanal || "N/A"}</div>
                       </td>
                       <td className="p-3 font-medium text-slate-700">{doc ? doc.nome : "Não atribuído"}</td>
                       <td className="p-3">

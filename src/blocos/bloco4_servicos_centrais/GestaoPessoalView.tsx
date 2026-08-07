@@ -286,6 +286,12 @@ export default function GestaoPessoalView({
         .includes("chefe de repartição de pessoal"));
 
   const roles = getRoles(user?.title || user?.cargo || user?.cargoChefia || "");
+  const canSeeSalaries = 
+    isSuperBossUser(user) || 
+    roles.isDG || 
+    (user?.title || user?.cargo || user?.cargoChefia || "").toUpperCase().includes("DAF") ||
+    ((user?.title || user?.cargo || user?.cargoChefia || "").toUpperCase().includes("DICOSAFA") && roles.isBoss);
+
   const hasGeneralEfetivoAccess =
     isSuperBossUser(user) || roles.isDG || isHRBossGlobally;
   const hasAllAccess = hasGeneralEfetivoAccess;
@@ -372,7 +378,7 @@ export default function GestaoPessoalView({
 
   const hasAdminAccess = canRegister;
 
-  const sideItems: any[] = [
+  const baseSideItems: any[] = [
     { id: "visao_geral", title: "Visão Geral", icon: LayoutGrid },
     {
       id: "plano",
@@ -396,7 +402,7 @@ export default function GestaoPessoalView({
     { id: "relatorios", title: "Relatórios", icon: BarChart3 },
     { id: "balanco", title: "Balanço", icon: PieChart },
     { id: "atribuir_actividade", title: "Atribuir Actividade", icon: CheckSquare },
-    {
+    ...(canSeeSalaries ? [{
       id: "remuneracoes",
       title: "Remunerações",
       icon: Banknote,
@@ -428,7 +434,7 @@ export default function GestaoPessoalView({
           title: "Salário de CTA",
         },
       ],
-    },
+    }] : []),
     {
       id: "gestao_pessoal",
       title: "Gestão de Pessoal",
@@ -436,7 +442,7 @@ export default function GestaoPessoalView({
       subItems: [
         { id: "efetivo_geral", title: "Efetivo Geral", filter: null },
         { id: "processo_form", title: "Novo Processo" },
-        { id: "remuneracoes", title: "Remunerações" },
+        ...(canSeeSalaries ? [{ id: "remuneracoes", title: "Remunerações" }] : []),
         {
           id: "docente_todos",
           title: "Docentes (Todos)",
@@ -476,6 +482,8 @@ export default function GestaoPessoalView({
       ],
     },
   ];
+
+  const sideItems = baseSideItems;
 
   const [expandedMenus, setExpandedMenus] = useState<string[]>([
     "gestao_pessoal",

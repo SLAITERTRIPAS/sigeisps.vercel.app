@@ -17,7 +17,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { printElementById } from "../lib/printUtils";
 import { UNIDADES_ORGANICAS_SISTEMA, DEPARTAMENTOS } from "../constants/formOptions";
-import { isSuperBossUser } from "../lib/auth";
+import { isSuperBossUser, canAccessArea } from "../lib/auth";
 
 interface AcaoOrcamentalViewProps {
   user: any;
@@ -472,10 +472,17 @@ export default function AcaoOrcamentalView({
       setSelectedLevel("institucional");
       setSelectedUnit("todos");
     } else {
-      setSelectedLevel("direcao");
-      setSelectedUnit(userDirecao);
+      const roleStr = String(user?.cargo || user?.title || user?.role || user?.cargoChefia || "").toLowerCase();
+      const isDirector = roleStr.includes("diretor") || roleStr.includes("director");
+      if (isDirector) {
+        setSelectedLevel("direcao");
+        setSelectedUnit(userDirecao);
+      } else {
+        setSelectedLevel("departamento");
+        setSelectedUnit(userDepartamento);
+      }
     }
-  }, [title, isPlanificacaoOrDPEP, user, userDirecao]);
+  }, [title, isPlanificacaoOrDPEP, user, userDirecao, userDepartamento]);
 
   // Resetar a unidade selecionada quando muda o nível
   const handleLevelChange = (
@@ -490,19 +497,27 @@ export default function AcaoOrcamentalView({
   const sectorActivities = useMemo(() => {
     let baseActivities = activities;
 
-    // Se o utilizador não for da Planificação / DPEP, restringe estritamente às atividades do seu nível/departamento
+    // Se o utilizador não for da Planificação / DPEP, restringe à sua área (Departamento estrito ou Direção)
     if (!isPlanificacaoOrDPEP) {
-      const userDept = (user?.departamento || user?.setor || user?.reparticao || user?.direcao || title || "").trim();
-      if (userDept) {
-        baseActivities = activities.filter((act) => {
-          return (
-            matchesUnitStr(act.direcao || act.direccao || act.unidadeOrganica, userDept) ||
-            matchesUnitStr(act.departamento, userDept) ||
-            matchesUnitStr(act.reparticao, userDept) ||
-            matchesUnitStr(act.setor, userDept) ||
-            matchesUnitStr(act.orgao, userDept)
-          );
-        });
+      const roleStr = String(user?.cargo || user?.title || user?.role || user?.cargoChefia || "").toLowerCase();
+      const isDirector = roleStr.includes("diretor") || roleStr.includes("director");
+
+      if (isDirector && userDirecao) {
+        // Direção: visualiza e consolida o orçamento de todos os departamentos sob a alçada da direção
+        baseActivities = activities.filter((act) =>
+          matchesUnitStr(act.direcao || act.direccao || act.unidadeOrganica, userDirecao) ||
+          canAccessArea(user, act.direcao || "", act.departamento || "", act.setor || "")
+        );
+      } else if (userDepartamento) {
+        // Cada Departamento possui orçamento próprio (soma isolada das suas atividades)
+        baseActivities = activities.filter((act) =>
+          matchesUnitStr(act.departamento, userDepartamento) ||
+          (!act.departamento && (
+            matchesUnitStr(act.solicitante, userDepartamento) ||
+            matchesUnitStr(act.unidade, userDepartamento) ||
+            matchesUnitStr(act.orgao, userDepartamento)
+          ))
+        );
       }
     }
 
@@ -516,7 +531,7 @@ export default function AcaoOrcamentalView({
           return !!(act.direcao || act.direccao || act.unidadeOrganica);
         }
         if (selectedLevel === "departamento") {
-          return !!(act.departamento || act.unidadeOrganica || act.orgao || act.solicitante || act.unidade || act.origem);
+          return !!act.departamento;
         }
         if (selectedLevel === "reparticao") {
           return !!act.reparticao;
@@ -533,13 +548,14 @@ export default function AcaoOrcamentalView({
         return matchesUnitStr(act.direcao || act.direccao || act.unidadeOrganica, selectedUnit);
       }
       if (selectedLevel === "departamento") {
+        if (act.departamento) {
+          return matchesUnitStr(act.departamento, selectedUnit);
+        }
         return (
-          matchesUnitStr(act.departamento, selectedUnit) ||
-          matchesUnitStr(act.unidadeOrganica, selectedUnit) ||
-          matchesUnitStr(act.orgao, selectedUnit) ||
           matchesUnitStr(act.solicitante, selectedUnit) ||
           matchesUnitStr(act.unidade, selectedUnit) ||
-          matchesUnitStr(act.origem, selectedUnit)
+          matchesUnitStr(act.origem, selectedUnit) ||
+          matchesUnitStr(act.orgao, selectedUnit)
         );
       }
       if (selectedLevel === "reparticao") {
@@ -549,14 +565,9 @@ export default function AcaoOrcamentalView({
         return matchesUnitStr(act.setor, selectedUnit);
       }
 
-      return (
-        matchesUnitStr(act.setor, selectedUnit) ||
-        matchesUnitStr(act.reparticao, selectedUnit) ||
-        matchesUnitStr(act.departamento, selectedUnit) ||
-        matchesUnitStr(act.direcao || act.unidadeOrganica, selectedUnit)
-      );
+      return matchesUnitStr(act.departamento, selectedUnit);
     });
-  }, [activities, selectedLevel, selectedUnit, isPlanificacaoOrDPEP, user, title]);
+  }, [activities, selectedLevel, selectedUnit, isPlanificacaoOrDPEP, user, userDirecao, userDepartamento]);
 
   // Total Geral do valor de todas as atividades planificadas (Orçamento do Nível/Departamento)
   const totalOrcamentadoSetor = useMemo(() => {
@@ -1346,7 +1357,7 @@ export default function AcaoOrcamentalView({
     }
   }, [title, sectorActivities.length]);
 
-  const tetoMax = customTeto > 0 ? customTeto : defaultTeto;
+  const tetoMax = sectorActivities.length === 0 ? 0 : (customTeto > 0 ? customTeto : defaultTeto);
 
   const handleSaveTeto = async () => {
     const val = Number(tempTetoInput);

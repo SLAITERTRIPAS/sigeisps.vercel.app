@@ -97,6 +97,21 @@ import {
 // Standard divisions and sectors of ISPS for mock grouping if not filled
 const DEV_SECTORS = Object.keys(REPARTICOES);
 
+const isDepartmentMatch = (deptA?: string, deptB?: string): boolean => {
+  if (!deptA || !deptB) return false;
+  const norm = (s: string) =>
+    String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/^departamento\s+(de\s+|da\s+|dos\s+|do\s+)?/i, "")
+      .trim();
+  const a = norm(deptA);
+  const b = norm(deptB);
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+};
+
 const GABINETES_DESTINATARIOS = [
   "Gabinete do Diretor Geral",
   "Direção Administrativa e Financeira (DAF)",
@@ -4757,7 +4772,12 @@ export default function PlanoWorkflowView({
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                         {
                           filteredActivities.filter(
-                            (a) => a.departamento === user?.departamento,
+                            (a) =>
+                              isDPEP ||
+                              isSuperBossUser(user) ||
+                              isDepartmentMatch(a.departamento, user?.departamento) ||
+                              isDepartmentMatch(a.departamento, title) ||
+                              isDepartmentMatch(a.unidadeOrganica, title),
                           ).length
                         }{" "}
                         Atividades
@@ -4769,7 +4789,12 @@ export default function PlanoWorkflowView({
                         <tbody className="divide-y divide-slate-200 text-slate-700 font-medium whitespace-nowrap">
                           {filteredActivities
                             .filter(
-                              (a) => a.departamento === user?.departamento,
+                              (a) =>
+                                isDPEP ||
+                                isSuperBossUser(user) ||
+                                isDepartmentMatch(a.departamento, user?.departamento) ||
+                                isDepartmentMatch(a.departamento, title) ||
+                                isDepartmentMatch(a.unidadeOrganica, title),
                             )
                             .map((activity, idx) => (
                               <ActivityTableRow
@@ -4842,7 +4867,12 @@ export default function PlanoWorkflowView({
                               />
                             ))}
                           {filteredActivities.filter(
-                            (a) => a.departamento === user?.departamento,
+                            (a) =>
+                              isDPEP ||
+                              isSuperBossUser(user) ||
+                              isDepartmentMatch(a.departamento, user?.departamento) ||
+                              isDepartmentMatch(a.departamento, title) ||
+                              isDepartmentMatch(a.unidadeOrganica, title),
                           ).length === 0 && (
                             <tr>
                               <td
@@ -5668,8 +5698,9 @@ export default function PlanoWorkflowView({
                                   (a) =>
                                     isDPEP ||
                                     isSuperBossUser(user) ||
-                                    
-                                    a.departamento === user.departamento,
+                                    isDepartmentMatch(a.departamento, user?.departamento) ||
+                                    isDepartmentMatch(a.departamento, title) ||
+                                    isDepartmentMatch(a.unidadeOrganica, title),
                                 )
                                 .map((activity, idx) => (
                                   <ActivityTableRow
@@ -5709,8 +5740,11 @@ export default function PlanoWorkflowView({
                                 ))}
                               {filteredActivities.filter(
                                 (a) =>
-                                  user?.departamento &&
-                                  a.departamento === user.departamento,
+                                  isDPEP ||
+                                  isSuperBossUser(user) ||
+                                  isDepartmentMatch(a.departamento, user?.departamento) ||
+                                  isDepartmentMatch(a.departamento, title) ||
+                                  isDepartmentMatch(a.unidadeOrganica, title),
                               ).length === 0 && (
                                 <tr>
                                   <td

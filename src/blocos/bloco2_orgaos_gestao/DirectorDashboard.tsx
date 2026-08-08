@@ -639,27 +639,43 @@ export default function DirectorDashboard({
     });
     setSectorActivities(sec);
 
+    const normDept = (str: string) =>
+      String(str || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/^departamento\s+(de\s+|da\s+|dos\s+|do\s+)?/i, "")
+        .trim();
+
+    const isDeptMatch = (d1?: string, d2?: string) => {
+      if (!d1 || !d2) return false;
+      const n1 = normDept(d1);
+      const n2 = normDept(d2);
+      if (!n1 || !n2) return false;
+      return n1 === n2 || n1.includes(n2) || n2.includes(n1);
+    };
+
     // Repartição Plan (reparticao)
     const rep = matrixActivities.filter((a) => {
+      if (isChefeDPEPUser || isSuperBossUser(user)) return true;
       const isRepStatus = (a.status as any) === "reparticao";
-      if (!isRepStatus) return false;
-      if (isChefeDPEPUser) return true;
       return (
+        isRepStatus ||
         a.reparticao === title ||
-        (user?.departamento && a.departamento === user.departamento)
+        isDeptMatch(a.departamento, user?.departamento) ||
+        isDeptMatch(a.departamento, title)
       );
     });
     setReparticaoActivities(rep);
 
     // Department Plan (departamento)
     const deptVal = matrixActivities.filter((a) => {
-      const isDeptStatus = (a.status as any) === "departamento";
-      if (!isDeptStatus) return false;
-      if (isChefeDPEPUser) return true;
+      if (isChefeDPEPUser || isSuperBossUser(user)) return true;
       return (
-        (user?.departamento && a.departamento === user.departamento) ||
-        a.departamento === title ||
-        title.toUpperCase().includes("DEPARTAMENTO")
+        isDeptMatch(a.departamento, user?.departamento) ||
+        isDeptMatch(a.departamento, title) ||
+        isDeptMatch(a.unidadeOrganica, title) ||
+        canAccessArea(user, a.direcao || "", a.departamento || "", a.setor || "")
       );
     });
     setDepartmentActivities(deptVal);

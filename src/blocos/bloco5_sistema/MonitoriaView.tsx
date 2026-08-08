@@ -51,6 +51,7 @@ export default function MonitoriaView({
   >("tracking");
   const [searchRef, setSearchRef] = useState("");
   const [searchResult, setSearchResult] = useState<any | null>(null);
+  const [selectedScheduledMonth, setSelectedScheduledMonth] = useState("Janeiro");
 
   const [monitoriaActivities, setMonitoriaActivities] = useState<
     ActivityMonitor[]
@@ -1019,15 +1020,26 @@ export default function MonitoriaView({
                 exit={{ opacity: 0, y: -20 }}
                 className="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden"
               >
-                <div className="p-10 border-b border-gray-100 flex justify-between items-center bg-blue-50/30">
+                <div className="p-10 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-blue-50/30 gap-4">
                   <div>
                     <h2 className="text-3xl font-black text-blue-900 tracking-tighter font-serif">
-                      Eventos Agendados
+                      Capa de Eventos Agendados — Próximo Mês
                     </h2>
-                    <p className="text-gray-500 font-medium">
-                      Actividades planeadas para o próximo mês (aguardando
-                      transição automática para 'Em Realização')
+                    <p className="text-gray-500 font-medium mt-1">
+                      Planilha publicada no dia 20 de cada mês (ex: 20 de Dezembro de 2026 publica as atividades de Janeiro de 2027).
                     </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-bold text-gray-700 whitespace-nowrap">Mês de Referência:</label>
+                    <select
+                      value={selectedScheduledMonth}
+                      onChange={(e) => setSelectedScheduledMonth(e.target.value)}
+                      className="bg-white border border-gray-300 rounded-xl px-4 py-2 text-sm font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    >
+                      {["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"].map((m) => (
+                        <option key={m} value={m}>{m} 2027</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -1035,87 +1047,75 @@ export default function MonitoriaView({
                   <table className="w-full text-left border-collapse min-w-max">
                     <thead>
                       <tr className="bg-gray-50 text-xs tracking-widest text-gray-400 font-black">
-                        <th className="px-6 py-6 border-b border-gray-100">
-                          N/o
-                        </th>
-                        <th className="px-6 py-6 border-b border-gray-100">
-                          Nome da Actividade
-                        </th>
-                        <th className="px-6 py-6 border-b border-gray-100">
-                          Mês Previsto
-                        </th>
-                        <th className="px-6 py-6 border-b border-gray-100">
-                          Departamento
-                        </th>
-                        <th className="px-6 py-6 border-b border-gray-100 text-right">
-                          Valor Total
-                        </th>
-                        <th className="px-6 py-6 border-b border-gray-100">
-                          Status
-                        </th>
-                        <th className="px-6 py-6 border-b border-gray-100">
-                          Obsv
-                        </th>
+                        <th className="px-6 py-5 border-b border-gray-100">N/o</th>
+                        <th className="px-6 py-5 border-b border-gray-100">Código da Atividade</th>
+                        <th className="px-6 py-5 border-b border-gray-100">Mês de Realização</th>
+                        <th className="px-6 py-5 border-b border-gray-100">Departamento</th>
+                        <th className="px-6 py-5 border-b border-gray-100">Responsável</th>
+                        <th className="px-6 py-5 border-b border-gray-100 text-right">Valor Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-gray-50 text-gray-800 font-medium">
                       {monitoriaActivities
-                        .filter((activity) => activity.status === "agendada")
+                        .filter((activity) => {
+                          const m = (activity.mes || activity.dataMes || "").toLowerCase();
+                          return m.includes(selectedScheduledMonth.toLowerCase());
+                        })
                         .map((activity, index) => (
-                          <tr
-                            key={activity.id}
-                            className="hover:bg-blue-50/20 transition-colors opacity-80"
-                          >
-                            <td className="px-6 py-6 font-mono text-sm font-bold text-gray-400">
+                          <tr key={activity.id} className="hover:bg-blue-50/20 transition-colors">
+                            <td className="px-6 py-5 font-mono text-sm font-bold text-gray-400">
                               {index + 1}
                             </td>
-                            <td className="px-6 py-6 font-bold text-gray-900 max-w-[200px] whitespace-normal break-words">
-                              {activity.title}
+                            <td className="px-6 py-5 font-bold text-blue-900">
+                              {activity.referencia || `ACT-${index + 1}`}
                             </td>
-                            <td className="px-6 py-6 text-gray-600 font-medium text-blue-600">
-                              {activity.mes || activity.dataMes || "-"}
+                            <td className="px-6 py-5 font-semibold text-blue-600">
+                              {activity.mes || selectedScheduledMonth}
                             </td>
-                            <td className="px-6 py-6 text-gray-600 font-medium">
-                              {activity.setor ||
-                                activity.direcao ||
-                                activity.departamento ||
-                                "-"}
+                            <td className="px-6 py-5 font-medium text-gray-700">
+                              {activity.setor || activity.departamento || "-"}
                             </td>
-                            <td className="px-6 py-6 text-right font-black text-gray-600">
-                              {(
-                                activity.orcamento ||
-                                activity.valor ||
-                                0
-                              ).toLocaleString("pt-MZ", {
+                            <td className="px-6 py-5 font-medium text-gray-600">
+                              {activity.responsavel || "Equipa do Departamento"}
+                            </td>
+                            <td className="px-6 py-5 text-right font-black text-gray-900">
+                              {(activity.orcamento || activity.valor || 0).toLocaleString("pt-MZ", {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               }) + " MZN"}
                             </td>
-                            <td className="px-6 py-6">
-                              <span className="px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest bg-blue-50 text-blue-600 whitespace-nowrap border border-blue-100">
-                                Agendada
-                              </span>
-                            </td>
-                            <td className="px-6 py-6 text-sm text-gray-500 italic max-w-xs truncate">
-                              {activity.isPlanificada
-                                ? "Planificada"
-                                : "Não Planificada"}
-                            </td>
                           </tr>
                         ))}
-                      {monitoriaActivities.filter(
-                        (a) => a.status === "agendada",
-                      ).length === 0 && (
+                      {monitoriaActivities.filter((activity) => {
+                        const m = (activity.mes || activity.dataMes || "").toLowerCase();
+                        return m.includes(selectedScheduledMonth.toLowerCase());
+                      }).length === 0 && (
                         <tr>
-                          <td
-                            colSpan={7}
-                            className="px-6 py-12 text-center text-gray-500 italic"
-                          >
-                            Nenhum evento agendado para o próximo mês.
+                          <td colSpan={6} className="px-6 py-12 text-center text-gray-500 italic">
+                            Nenhuma atividade agendada para {selectedScheduledMonth} de 2027.
                           </td>
                         </tr>
                       )}
                     </tbody>
+                    <tfoot>
+                      <tr className="bg-blue-50/60 font-black text-blue-950 border-t-2 border-blue-100">
+                        <td colSpan={5} className="px-6 py-5 text-right uppercase tracking-wider text-sm">
+                          Soma Total do Orçamento para as Atividades em Referência:
+                        </td>
+                        <td className="px-6 py-5 text-right text-lg text-blue-700">
+                          {monitoriaActivities
+                            .filter((activity) => {
+                              const m = (activity.mes || activity.dataMes || "").toLowerCase();
+                              return m.includes(selectedScheduledMonth.toLowerCase());
+                            })
+                            .reduce((sum, a) => sum + (Number(a.orcamento || a.valor) || 0), 0)
+                            .toLocaleString("pt-MZ", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }) + " MZN"}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </motion.div>

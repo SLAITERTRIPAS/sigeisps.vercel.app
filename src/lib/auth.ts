@@ -28,20 +28,30 @@ export const canAccessArea = (
     return true;
   }
 
-  const role = (user.role || "").toLowerCase();
-  const title = (user.title || user.cargo || user.cargoChefia || "").toLowerCase();
+  const norm = (s: string) =>
+    String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/^departamento\s+(de\s+|da\s+|dos\s+|do\s+)?/i, "")
+      .replace(/^direcao\s+(de\s+|da\s+|dos\s+|do\s+)?/i, "")
+      .replace(/^reparticao\s+(de\s+|da\s+|dos\s+|do\s+)?/i, "")
+      .trim();
+
+  const role = norm(user.role || "");
+  const title = norm(user.title || user.cargo || user.cargoChefia || "");
   const combinedRole = role + " " + title;
 
-  const uDir = (user.direcao || "").toLowerCase().trim();
-  const uDept = (user.departamento || "").toLowerCase().trim();
-  const uSector = (user.setor || user.reparticao || "").toLowerCase().trim();
+  const uDir = norm(user.direcao || "");
+  const uDept = norm(user.departamento || "");
+  const uSector = norm(user.setor || user.reparticao || "");
   
-  // Create a combined list of all user areas to ensure we don't miss a match if data is stored in the wrong field
+  // Lista combinada de todas as áreas do utilizador
   const userAreas = [uDir, uDept, uSector].filter(Boolean);
 
-  const tDir = (targetDir || "").toLowerCase().trim();
-  const tDept = (targetDept || "").toLowerCase().trim();
-  const tSector = (targetSector || "").toLowerCase().trim();
+  const tDir = norm(targetDir || "");
+  const tDept = norm(targetDept || "");
+  const tSector = norm(targetSector || "");
 
   // Diretores Centrais -> acessam Direções
   if (combinedRole.includes("diretor") || combinedRole.includes("director")) {
@@ -51,28 +61,28 @@ export const canAccessArea = (
   // Chefe de Departamento -> acessam Departamentos
   if (combinedRole.includes("chefe de departamento") || combinedRole.includes("departamento")) {
     if (tDept && userAreas.some(area => tDept.includes(area) || area.includes(tDept))) return true;
-    // Fallback in case the activity was saved with the department name in the setor field
     if (tSector && userAreas.some(area => tSector.includes(area) || area.includes(tSector))) return true;
   }
 
   // Chefe de Reparticao -> acessam Reparticoes
-  if (combinedRole.includes("chefe de repartição") || combinedRole.includes("chefe de reparticao") || combinedRole.includes("reparticao") || combinedRole.includes("repartição")) {
+  if (combinedRole.includes("chefe de reparticao") || combinedRole.includes("reparticao")) {
     if (tSector && userAreas.some(area => tSector.includes(area) || area.includes(tSector))) return true;
   }
 
-  // Fallback genérico de correspondência exata para a área do utilizador
-  // We match the most specific level the user belongs to, preventing them from seeing broader areas
+  // Correspondência genérica para a área do utilizador
   if (uSector && tSector) {
     if (tSector === uSector || tSector.includes(uSector) || uSector.includes(tSector)) return true;
-  } else if (uDept && tDept) {
+  }
+  if (uDept && tDept) {
     if (tDept === uDept || tDept.includes(uDept) || uDept.includes(tDept)) return true;
-  } else if (uDir && tDir) {
+  }
+  if (uDir && tDir) {
     if (tDir === uDir || tDir.includes(uDir) || uDir.includes(tDir)) return true;
   }
 
-  // If activity is at department level (no sector) and user is in a sector of that department
-  if (uSector && uDept && !tSector && tDept) {
-     if (tDept === uDept || tDept.includes(uDept) || uDept.includes(tDept)) return true;
+  // Se o utilizador pertencer ao mesmo departamento da atividade
+  if (uDept && tDept && (tDept === uDept || tDept.includes(uDept) || uDept.includes(tDept))) {
+    return true;
   }
 
   return false;
@@ -151,7 +161,6 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
   const uEmail = (user.email || "").toLowerCase();
 
   return activities.filter((a) => {
-
     if (!a) return false;
 
     // As atividades sempre devem estar visíveis para o próprio criador
@@ -172,14 +181,18 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
     const aDept = (a.departamento || "").trim();
     const aSector = (a.setor || a.reparticao || "").trim();
 
-    
+    // Se o utilizador tem permissão/jurisdição sobre a área (mesmo departamento/direção), deve ver a atividade!
+    if (canAccessArea(user, aDir, aDept, aSector)) {
+      return true;
+    }
+
     const activityLevel = getActivityStatusLevel(a.status);
     const requiredLevel = getUserRequiredStatusLevel(user);
     
-    // Only allow access if the activity has reached the status required by the user's hierarchy level
+    // Nível hierárquico mínimo para atividades de OUTRAS áreas
     if (activityLevel < requiredLevel) return false;
 
-    return canAccessArea(user, aDir, aDept, aSector);
+    return false;
   });
 };
 

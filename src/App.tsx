@@ -111,7 +111,7 @@ export default function App() {
     | "assinatura_digital"
     | "documentos_normativos"
     | "relatorios"
-  >("login");
+  >("home");
   const [statsActiveItem, setStatsActiveItem] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -276,15 +276,13 @@ export default function App() {
   }, [view, subMenuStack]);
 
   useEffect(() => {
-    // InitialAuthStateCheck com temporizador de segurança contra tela branca
+    // InitialAuthStateCheck com temporizador de segurança contra tela branca (1.5 segundos máx)
     const safetyTimer = setTimeout(() => {
-      if (!authReady) {
-        console.warn("Auth initialization timed out, forcing ready state.");
-        setAuthReady(true);
-        setBootComplete(true);
-        setInitStatus("Pronto.");
-      }
-    }, 4000); // Reduzido para 4 segundos para resposta mais rápida
+      console.warn("Auth initialization timed out or offline, forcing ready state immediately.");
+      setAuthReady(true);
+      setBootComplete(true);
+      setInitStatus("Pronto.");
+    }, 1500);
 
     const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
@@ -295,10 +293,14 @@ export default function App() {
           try {
             const stored = localStorage.getItem("sigep_logged_in_user");
             if (!stored) {
-              await signInAnonymously(auth);
+              // Tentar autenticação anónima com limite de tempo de 1s
+              await Promise.race([
+                signInAnonymously(auth),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout anon")), 1000))
+              ]);
             }
           } catch (e) {
-            console.warn("Erro na autenticação anónima inicial:", e);
+            console.warn("Aviso na autenticação anónima inicial (modo offline ativado):", e);
           }
           setAuthReady(true);
           setBootComplete(true);
@@ -308,7 +310,7 @@ export default function App() {
 
         setInitStatus("A carregar perfil...");
         // Define um objeto de usuário básico seguro inicialmente
-        const initialUser = {
+        let initialUser: any = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || "",
           id: firebaseUser.uid,
@@ -316,26 +318,39 @@ export default function App() {
           role: "Utilizador",
           status: "Ativo"
         };
+
+        try {
+          const storedUserStr = localStorage.getItem("sigep_logged_in_user");
+          if (storedUserStr) {
+            const storedUser = JSON.parse(storedUserStr);
+            if (storedUser && (storedUser.email === firebaseUser.email || storedUser.uid === firebaseUser.uid)) {
+              initialUser = { ...initialUser, ...storedUser };
+            }
+          }
+        } catch (e) {
+          console.warn("Erro ao recuperar utilizador local:", e);
+        }
+
         setUser(initialUser);
 
-        // Removida a restauração automática da vista para garantir que o sistema
-        // inicie sempre na página inicial (home), conforme solicitado pelo utilizador.
         setInitStatus("Pronto para iniciar.");
         
-        // Background Sync (Sincronização em segundo plano continua para manter dados atualizados)
+        // Background Sync com timeout de 1.5s para nunca bloquear a interface
         if (initialUser && (initialUser.email || (initialUser as any).nuit)) {
-          setInitStatus("A sincronizar com a base de dados...");
-          const usersRef = collection(db, "users");
-          const q = (initialUser as any).email
-            ? query(usersRef, where("email", "==", String((initialUser as any).email).toLowerCase().trim()))
-            : query(usersRef, where("nuit", "==", String((initialUser as any).nuit).trim()));
-
           try {
-            const snap = await getDocs(q);
-            if (!snap.empty) {
+            const usersRef = collection(db, "users");
+            const q = (initialUser as any).email
+              ? query(usersRef, where("email", "==", String((initialUser as any).email).toLowerCase().trim()))
+              : query(usersRef, where("nuit", "==", String((initialUser as any).nuit).trim()));
+
+            const snap = await Promise.race([
+              getDocs(q),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout sync")), 1500))
+            ]) as any;
+
+            if (snap && !snap.empty) {
               const latestData = { ...snap.docs[0].data(), id: snap.docs[0].id } as any;
               
-              // Sync UID
               const sessionSyncKey = `synced_uid_${latestData.id}_${firebaseUser.uid}`;
               if (!sessionStorage.getItem(sessionSyncKey)) {
                 sessionStorage.setItem(sessionSyncKey, "true");
@@ -348,7 +363,7 @@ export default function App() {
               setUser((prev: any) => ({ ...prev, ...latestData, mustChangePassword: false }));
             }
           } catch (syncErr) {
-            console.warn("Background sync failed:", syncErr);
+            console.warn("Background sync skipped or offline:", syncErr);
           }
         }
 
@@ -356,7 +371,7 @@ export default function App() {
         setAuthReady(true);
         setBootComplete(true);
       } catch (err) {
-        console.error("Erro fatal na inicialização:", err);
+        console.error("Erro na inicialização:", err);
         setAuthReady(true);
         setBootComplete(true);
         clearTimeout(safetyTimer);

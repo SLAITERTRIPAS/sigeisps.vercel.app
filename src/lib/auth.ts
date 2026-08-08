@@ -60,28 +60,28 @@ export const canAccessArea = (
 
   // Chefe de Departamento -> acessam Departamentos
   if (combinedRole.includes("chefe de departamento") || combinedRole.includes("departamento")) {
-    if (tDept && userAreas.some(area => tDept.includes(area) || area.includes(tDept))) return true;
-    if (tSector && userAreas.some(area => tSector.includes(area) || area.includes(tSector))) return true;
+    if (tDept && userAreas.some(area => tDept === area)) return true;
+    if (tSector && userAreas.some(area => tSector === area)) return true;
   }
 
   // Chefe de Reparticao -> acessam Reparticoes
   if (combinedRole.includes("chefe de reparticao") || combinedRole.includes("reparticao")) {
-    if (tSector && userAreas.some(area => tSector.includes(area) || area.includes(tSector))) return true;
+    if (tSector && userAreas.some(area => tSector === area)) return true;
   }
 
   // Correspondência genérica para a área do utilizador
   if (uSector && tSector) {
-    if (tSector === uSector || tSector.includes(uSector) || uSector.includes(tSector)) return true;
+    if (tSector === uSector) return true;
   }
   if (uDept && tDept) {
-    if (tDept === uDept || tDept.includes(uDept) || uDept.includes(tDept)) return true;
+    if (tDept === uDept) return true;
   }
   if (uDir && tDir) {
     if (tDir === uDir || tDir.includes(uDir) || uDir.includes(tDir)) return true;
   }
 
   // Se o utilizador pertencer ao mesmo departamento da atividade
-  if (uDept && tDept && (tDept === uDept || tDept.includes(uDept) || uDept.includes(tDept))) {
+  if (uDept && tDept && (tDept === uDept)) {
     return true;
   }
 
@@ -158,28 +158,46 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
     user.isOwner === true ||
     (user.categoria || "").toLowerCase().includes("programador");
 
-  const uEmail = (user.email || "").toLowerCase();
+  const uEmail = String(user.email || "").toLowerCase();
+  const uId = user.uid || user.id;
+  const uDept = String(user.departamento || "").toLowerCase().trim();
+  const uSector = String(user.setor || user.reparticao || "").toLowerCase().trim();
+  const uDir = String(user.direcao || "").toLowerCase().trim();
 
   return activities.filter((a) => {
     if (!a) return false;
 
     // As atividades sempre devem estar visíveis para o próprio criador
-    const creator = (a.createdBy || a.emailCriador || "").toLowerCase();
-    if (creator && creator === uEmail) return true;
+    const creator = String(a.createdBy || a.emailCriador || "").toLowerCase();
+    if ((creator && creator === uEmail) || (a.userId && uId && a.userId === uId)) return true;
 
     // Administrador de Sistema tem acesso total para fins de suporte e debug
     if (isSysAdmin) return true;
 
-    // Se estiver tramitado para o gabinete/área atual do usuário, conceder acesso
-    if (a.currentGabinete) {
-      const uArea = (user.setor || user.reparticao || user.departamento || user.direcao || "").toLowerCase().trim();
-      const aGabinete = a.currentGabinete.toLowerCase();
-      if (uArea && (aGabinete.includes(uArea) || uArea.includes(aGabinete))) return true;
+    const aDir = String(a.direcao || "").trim();
+    const aDept = String(a.departamento || "").trim();
+    const aSector = String(a.setor || a.reparticao || "").trim();
+
+    const aDeptLower = aDept.toLowerCase();
+    const aSectorLower = aSector.toLowerCase();
+
+    // Se pertence ao mesmo departamento ou setor do usuário logado
+    const isSameDeptOrSector = 
+      (uDept && aDeptLower && (aDeptLower.includes(uDept) || uDept.includes(aDeptLower))) ||
+      (uSector && aSectorLower && (aSectorLower.includes(uSector) || uSector.includes(aSectorLower)));
+
+    // Se não for do mesmo departamento/setor, exige que esteja submetido/encaminhado (submetido === true ou status avançado)
+    if (!isSameDeptOrSector) {
+      const isSubmitted = a.submetido === true || (a.status && a.status !== "setorial" && a.status !== "draft" && a.status !== "Não Submetido");
+      if (!isSubmitted) return false;
     }
 
-    const aDir = (a.direcao || "").trim();
-    const aDept = (a.departamento || "").trim();
-    const aSector = (a.setor || a.reparticao || "").trim();
+    // Se estiver tramitado para o gabinete/área atual do usuário, conceder acesso
+    if (a.currentGabinete) {
+      const uArea = String(user.setor || user.reparticao || user.departamento || user.direcao || "").toLowerCase().trim();
+      const aGabinete = String(a.currentGabinete).toLowerCase();
+      if (uArea && (aGabinete.includes(uArea) || uArea.includes(aGabinete))) return true;
+    }
 
     // Se o utilizador tem permissão/jurisdição sobre a área (mesmo departamento/direção), deve ver a atividade!
     if (canAccessArea(user, aDir, aDept, aSector)) {

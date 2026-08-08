@@ -136,15 +136,14 @@ export function getDeletedProductKeys(): Set<string> {
   return new Set();
 }
 
-export function deleteUnifiedProduct(nome: string) {
+export async function deleteUnifiedProduct(nome: string) {
   try {
     const singularName = toSingularProductName(nome);
     const key = singularName.trim().toLowerCase();
     const docId = `prod_${key}`.replace(/[^a-zA-Z0-9_]/g, "_");
     
-    const deleted = getDeletedProductKeys();
-    deleted.add(key);
-    localStorage.setItem("sigep_deleted_products", safeJSONStringify(Array.from(deleted)));
+    // Remover imediatamente e definitivamente da base de dados Firestore
+    await firestoreService.produtosUnificados.delete(docId);
 
     const saved = localStorage.getItem("sigep_unified_products");
     if (saved) {
@@ -152,12 +151,9 @@ export function deleteUnifiedProduct(nome: string) {
       const filtered = parsed.filter((p) => toSingularProductName(p.nome).trim().toLowerCase() !== key);
       localStorage.setItem("sigep_unified_products", safeJSONStringify(filtered));
     }
-
-    firestoreService.produtosUnificados.delete(docId).catch((err) => {
-      console.warn("Aviso ao eliminar produto no Firestore:", err);
-    });
   } catch (e) {
-    console.error("Error deleting product:", e);
+    console.error("Error deleting product from database:", e);
+    throw e;
   }
 }
 

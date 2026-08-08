@@ -64,7 +64,7 @@ export const ActivityTableHeader = React.memo(function ActivityTableHeader({
           className="p-1 border-2 border-slate-950 font-black tracking-widest text-[11px]"
           colSpan={1}
         >
-          VI. TRANSPORTE
+          VI. TRANS
         </th>
         <th
           className="p-1 border-2 border-slate-950 font-black tracking-widest text-[11px]"
@@ -164,7 +164,7 @@ export const ActivityTableHeader = React.memo(function ActivityTableHeader({
           Mês/Real.
         </th>
 
-        {/* VI. TRANSPORTE */}
+        {/* VI. TRANS */}
         <th
           className="p-1 border-2 border-slate-950 text-[9px] font-black w-10 text-center whitespace-nowrap"
           rowSpan={1}

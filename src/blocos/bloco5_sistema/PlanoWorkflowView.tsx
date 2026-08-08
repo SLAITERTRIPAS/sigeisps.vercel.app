@@ -109,7 +109,7 @@ const isDepartmentMatch = (deptA?: string, deptB?: string): boolean => {
   const a = norm(deptA);
   const b = norm(deptB);
   if (!a || !b) return false;
-  return a === b || a.includes(b) || b.includes(a);
+  return a === b;
 };
 
 const GABINETES_DESTINATARIOS = [
@@ -1226,10 +1226,27 @@ export default function PlanoWorkflowView({
     return nonSalaryActs.reduce((acc, act) => acc + getActivityTotal(act), 0);
   }, [filteredActivities]);
 
+  const isUserHR = useMemo(() => {
+    const dept = (user?.departamento || title || "").toUpperCase();
+    const cargo = (user?.cargo || "").toUpperCase();
+    return (
+      dept.includes("RECURSOS HUMANOS") ||
+      dept.includes(" RH ") ||
+      dept.endsWith(" RH") ||
+      dept.startsWith("RH ") ||
+      dept === "RH" ||
+      cargo.includes("RH") ||
+      cargo.includes("RECURSOS HUMANOS")
+    );
+  }, [user, title]);
+
   const deptSalaryTotal = useMemo(() => {
+    const deptName = (user?.departamento || title || "").toUpperCase();
+    const isThisDeptHR = deptName.includes("RH") || deptName.includes("RECURSOS HUMANOS");
+    if (!isThisDeptHR && !isUserHR) return 0;
     const salaryActs = filteredActivities.filter((a) => isSalaryActivity(a));
     return salaryActs.reduce((acc, act) => acc + getActivityTotal(act) * 12, 0);
-  }, [filteredActivities]);
+  }, [filteredActivities, user, title, isUserHR]);
 
   const getDirectionKeysMatched = (
     dirTitle: string = "",
@@ -1345,13 +1362,14 @@ export default function PlanoWorkflowView({
   }, [directionDepartmentBudgets]);
 
   const directionSalaryBudget = useMemo(() => {
+    const hasHRDept = departmentsForThisDirection.some(
+      (d) => d.toUpperCase().includes("RH") || d.toUpperCase().includes("RECURSOS HUMANOS")
+    );
+    if (!hasHRDept) return 0;
+
     const dirActs = filteredActivities.filter((a) => {
-      const isMyDept = departmentsForThisDirection.some(
-        (d) =>
-          a.departamento === d ||
-          (d === "Gabinete do Diretor-Geral" && !a.departamento),
-      );
-      return isMyDept;
+      const deptName = (a.departamento || "").toUpperCase();
+      return deptName.includes("RH") || deptName.includes("RECURSOS HUMANOS");
     });
     const salaryActs = dirActs.filter((a) => isSalaryActivity(a));
     return salaryActs.reduce((acc, act) => acc + getActivityTotal(act) * 12, 0);

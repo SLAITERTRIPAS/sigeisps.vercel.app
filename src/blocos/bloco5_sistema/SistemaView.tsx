@@ -1325,6 +1325,30 @@ export default function SistemaView({
             color: "bg-purple-600",
           },
           {
+            label: "Limpar Ficheiros Temporários (Lixo do Sistema)",
+            special: true,
+            action: async () => {
+              if (window.confirm("Deseja limpar todos os ficheiros temporários e cache (lixo do sistema)? Esta ação não apagará dados essenciais da base de dados, mas forçará o sistema a sincronizar os dados mais recentes.")) {
+                setIsCleaning(true);
+                setCleaningStep("A limpar ficheiros temporários...");
+                Object.keys(localStorage).forEach((k) => {
+                  if (k !== "sigep_logged_in_user" && !k.includes("token")) {
+                    localStorage.removeItem(k);
+                  }
+                });
+                Object.keys(sessionStorage).forEach((k) => sessionStorage.removeItem(k));
+                setTimeout(() => {
+                  setIsCleaning(false);
+                  setCleaningStep(null);
+                  alert("Ficheiros temporários e lixo do sistema eliminados com sucesso. O sistema vai recarregar.");
+                  window.location.reload();
+                }, 1000);
+              }
+            },
+            icon: RefreshCw,
+            color: "bg-teal-600",
+          },
+          {
             label: "Limpar Dados de Programador (Testes)",
             special: true,
             action: handleClearProgrammerData,

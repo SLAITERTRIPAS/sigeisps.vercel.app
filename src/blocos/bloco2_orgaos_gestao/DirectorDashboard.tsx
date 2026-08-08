@@ -652,7 +652,7 @@ export default function DirectorDashboard({
       const n1 = normDept(d1);
       const n2 = normDept(d2);
       if (!n1 || !n2) return false;
-      return n1 === n2 || n1.includes(n2) || n2.includes(n1);
+      return n1 === n2;
     };
 
     // Repartição Plan (reparticao)

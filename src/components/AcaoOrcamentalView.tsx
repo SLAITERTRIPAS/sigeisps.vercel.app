@@ -369,6 +369,15 @@ const matchesUnitStr = (actVal?: string, targetVal?: string): boolean => {
   return normA.includes(normT) || normT.includes(normA);
 };
 
+const matchesDeptStr = (actVal?: string, targetVal?: string): boolean => {
+  if (!targetVal || targetVal === "todos") return true;
+  if (!actVal) return false;
+  const normA = normalizeStr(actVal);
+  const normT = normalizeStr(targetVal);
+  if (!normA || !normT) return false;
+  return normA === normT;
+};
+
 export default function AcaoOrcamentalView({
   user,
   title,
@@ -511,11 +520,11 @@ export default function AcaoOrcamentalView({
       } else if (userDepartamento) {
         // Cada Departamento possui orçamento próprio (soma isolada das suas atividades)
         baseActivities = activities.filter((act) =>
-          matchesUnitStr(act.departamento, userDepartamento) ||
+          matchesDeptStr(act.departamento, userDepartamento) ||
           (!act.departamento && (
-            matchesUnitStr(act.solicitante, userDepartamento) ||
-            matchesUnitStr(act.unidade, userDepartamento) ||
-            matchesUnitStr(act.orgao, userDepartamento)
+            matchesDeptStr(act.solicitante, userDepartamento) ||
+            matchesDeptStr(act.unidade, userDepartamento) ||
+            matchesDeptStr(act.orgao, userDepartamento)
           ))
         );
       }
@@ -549,13 +558,13 @@ export default function AcaoOrcamentalView({
       }
       if (selectedLevel === "departamento") {
         if (act.departamento) {
-          return matchesUnitStr(act.departamento, selectedUnit);
+          return matchesDeptStr(act.departamento, selectedUnit);
         }
         return (
-          matchesUnitStr(act.solicitante, selectedUnit) ||
-          matchesUnitStr(act.unidade, selectedUnit) ||
-          matchesUnitStr(act.origem, selectedUnit) ||
-          matchesUnitStr(act.orgao, selectedUnit)
+          matchesDeptStr(act.solicitante, selectedUnit) ||
+          matchesDeptStr(act.unidade, selectedUnit) ||
+          matchesDeptStr(act.origem, selectedUnit) ||
+          matchesDeptStr(act.orgao, selectedUnit)
         );
       }
       if (selectedLevel === "reparticao") {

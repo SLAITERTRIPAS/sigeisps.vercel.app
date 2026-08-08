@@ -22,18 +22,18 @@ export default function SplashScreen({
     let currentProg = 0;
 
     progressTimer = setInterval(() => {
-      currentProg += 1;
+      currentProg += 2;
       if (currentProg >= 100) {
         currentProg = 100;
         setProgress(100);
         clearInterval(progressTimer);
         setTimeout(() => {
           onFinish();
-        }, 50);
+        }, 100);
       } else {
-        setProgress(Math.round(currentProg));
+        setProgress((prev) => Math.min(100, Math.max(prev, Math.round(currentProg))));
       }
-    }, 30);
+    }, 40); // 40ms * 50 steps = 2000ms (2 seconds for instant fast load)
 
     return () => {
       if (progressTimer) clearInterval(progressTimer);

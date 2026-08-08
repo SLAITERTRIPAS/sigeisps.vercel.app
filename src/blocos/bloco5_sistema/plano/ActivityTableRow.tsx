@@ -493,15 +493,46 @@ export const ActivityTableRow = React.memo(function ActivityTableRow({
 
             {/* V. TEMPO E DURAÇÃO */}
             <td
-              className="p-1 border-r border-slate-300 text-[10px] font-black text-slate-700 text-center w-12"
+              className="p-1 border-r border-slate-300 text-[10px] font-black text-slate-700 text-center w-14"
               rowSpan={rubricas.length}
               hidden={rIdx > 0}
             >
               {(() => {
-                if (Array.isArray(activity.trimestres) && activity.trimestres.length > 0) {
-                  return activity.trimestres.join(", ");
+                const freq = activity.frequencia || "";
+                const trims = Array.isArray(activity.trimestres) && activity.trimestres.length > 0 
+                  ? activity.trimestres 
+                  : [activity.trimestre].filter(Boolean);
+
+                const formatTrimStr = (tList: any[]) => {
+                  return tList.map((t: string) => {
+                    const s = String(t).trim();
+                    if (s.includes("1") || (s.toLowerCase().includes("i") && !s.toLowerCase().includes("ii") && !s.toLowerCase().includes("iv"))) return "1º";
+                    if (s.includes("2") || s.toLowerCase().includes("ii")) return "2º";
+                    if (s.includes("3") || s.toLowerCase().includes("iii")) return "3º";
+                    if (s.includes("4") || s.toLowerCase().includes("iv")) return "4º";
+                    const digits = s.replace(/\D/g, "");
+                    if (digits) return `${digits}º`;
+                    return s;
+                  }).join(", ");
+                };
+
+                if (trims.length > 0) {
+                  return formatTrimStr(trims);
                 }
-                return activity.trimestre || "-";
+
+                if (freq === "Anual") return "1º, 2º, 3º, 4º (Anual)";
+                if (freq === "Semestral") {
+                  if (activity.semestre?.includes("1")) return "1º, 2º";
+                  if (activity.semestre?.includes("2")) return "3º, 4º";
+                  return "Semestral";
+                }
+                if (freq === "Mensal") return "1º, 2º, 3º, 4º (Mensal)";
+                if (freq === "Trimestral") return "Trimestral";
+
+                if (activity.semestre?.includes("1")) return "1º, 2º";
+                if (activity.semestre?.includes("2")) return "3º, 4º";
+
+                return "-";
               })()}
             </td>
             <td

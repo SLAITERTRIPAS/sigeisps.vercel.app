@@ -289,7 +289,7 @@ export function IntelligentDiagnosticsView() {
                   <h3 className="text-base font-black text-slate-900">
                     {anom.title}
                   </h3>
-                  <p className="text-xs text-slate-600 font-medium">
+                  <p className="text-xs text-slate-600 font-medium whitespace-pre-line">
                     {anom.description}
                   </p>
 

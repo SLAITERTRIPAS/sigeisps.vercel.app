@@ -206,14 +206,43 @@ export default function GestaoPatrimonialView({
       case "visao_geral":
         return <VisaoGeralLayout title="Gestão Patrimonial" />;
       case "plano":
+        const patrimonioActivities = matrixActivities.filter(a => 
+          (a.setor || a.departamento || a.unidadeOrganica || "").toLowerCase().includes("patrimonial") ||
+          (a.setor || a.departamento || a.unidadeOrganica || "").toLowerCase().includes("património") ||
+          (a.setor || a.departamento || a.unidadeOrganica || "").toLowerCase().includes("patrimonio")
+        );
         return (
           <MatrixView
             title="Plano da Gestão Patrimonial"
             isDepartment={true}
-            externalActivities={[]}
-            setExternalActivities={() => {}}
-            onDeleteActivity={() => {}}
-            onUpdateActivity={() => {}}
+            externalActivities={patrimonioActivities}
+            onDeleteActivity={async (id) => {
+              try {
+                await firestoreService.matrixActivities.delete(id);
+              } catch (error) {
+                console.error("Erro ao apagar atividade:", error);
+              }
+            }}
+            onUpdateActivity={async (id, data) => {
+              try {
+                await firestoreService.matrixActivities.update(id, data);
+              } catch (error) {
+                console.error("Erro ao atualizar atividade:", error);
+              }
+            }}
+            onActivityAdded={async (act) => {
+              try {
+                await firestoreService.matrixActivities.add({
+                  ...act,
+                  setor: "Gestão Patrimonial",
+                  departamento: "Gestão Patrimonial",
+                  direcao: "Gestão Patrimonial",
+                });
+              } catch (error) {
+                console.error("Erro ao adicionar atividade:", error);
+              }
+            }}
+            user={user}
           />
         );
       case "calendario":

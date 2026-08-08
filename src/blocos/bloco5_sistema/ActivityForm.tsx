@@ -113,6 +113,118 @@ function calculateNextNum(acts: any[], currentUserArea?: string): number {
   return maxNum + 1;
 }
 
+const normalizeStr = (str: any): string => {
+  if (!str) return "";
+  return String(str)
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+};
+
+const extractMonthsFromActivity = (act: any): string[] => {
+  const months = new Set<string>();
+  if (act?.mesesRealizacao && Array.isArray(act.mesesRealizacao)) {
+    act.mesesRealizacao.forEach((m: any) => {
+      if (m) months.add(normalizeStr(m));
+    });
+  } else if (act?.mesesRealizacao && typeof act.mesesRealizacao === "string") {
+    act.mesesRealizacao.split(/[,;\/]/).forEach((m: string) => {
+      if (m.trim()) months.add(normalizeStr(m.trim()));
+    });
+  }
+  if (act?.mesRealizacao) months.add(normalizeStr(act.mesRealizacao));
+  if (act?.mes) months.add(normalizeStr(act.mes));
+  if (act?.trimestres && Array.isArray(act.trimestres)) {
+    act.trimestres.forEach((t: any) => {
+      if (t) months.add(normalizeStr(t));
+    });
+  }
+  return Array.from(months);
+};
+
+const checkActivityDuplicates = (
+  candidate: any,
+  existingList: any[],
+  currentEditingId?: string
+) => {
+  const candName = normalizeStr(
+    candidate.nomeAtividade || candidate.title || candidate.designacao
+  );
+  const candCode = normalizeStr(
+    candidate.codigoAtividade ||
+      candidate.numeroAtividade ||
+      candidate.nAtividade ||
+      candidate.no ||
+      candidate.referencia
+  );
+  const candMonths = extractMonthsFromActivity(candidate);
+
+  if (!candName && !candCode) return { isDuplicate: false };
+
+  for (const act of existingList || []) {
+    if (!act) continue;
+    const actId = act.id || act._id || act.docId;
+    if (currentEditingId && actId && String(actId) === String(currentEditingId)) {
+      continue; // Ignorar o próprio registo durante a edição
+    }
+
+    const actName = normalizeStr(
+      act.nomeAtividade || act.title || act.designacao
+    );
+    const actCode = normalizeStr(
+      act.codigoAtividade ||
+        act.numeroAtividade ||
+        act.nAtividade ||
+        act.no ||
+        act.referencia
+    );
+
+    const isSameName = candName !== "" && candName === actName;
+    const isSameCode = candCode !== "" && candCode === actCode;
+
+    if (isSameName || isSameCode) {
+      const actMonths = extractMonthsFromActivity(act);
+
+      // Verificação de sobreposição de mês
+      let hasOverlapMonth = false;
+      if (candMonths.length > 0 && actMonths.length > 0) {
+        hasOverlapMonth = candMonths.some((cm) =>
+          actMonths.some((am) => cm.includes(am) || am.includes(cm))
+        );
+      } else {
+        // Se meses não foram especificados no candidato ou existente, assume sobreposição de período
+        hasOverlapMonth = true;
+      }
+
+      if (hasOverlapMonth) {
+        return {
+          isDuplicate: true,
+          type: "ABORT_DUPLICATE",
+          existingActivity: act,
+          candName: candidate.nomeAtividade || candidate.title,
+          actName: act.nomeAtividade || act.title,
+          candCode: candidate.numeroAtividade || candidate.codigoAtividade || candidate.no,
+          months: candMonths.length > 0 ? candMonths : actMonths,
+        };
+      } else {
+        return {
+          isDuplicate: false,
+          isDifferentMonth: true,
+          existingActivity: act,
+          candName: candidate.nomeAtividade || candidate.title,
+          candCode: candidate.numeroAtividade || candidate.codigoAtividade || candidate.no,
+          candMonths,
+          actMonths,
+        };
+      }
+    }
+  }
+
+  return { isDuplicate: false };
+};
+
 export default function ActivityForm({
   onClose,
   onSubmit,
@@ -132,7 +244,7 @@ export default function ActivityForm({
   useEffect(() => {
     if (plannedActivitiesProp && plannedActivitiesProp.length > 0) {
       // Privacidade de Atividades: Cada setor vê apenas as suas próprias atividades
-      // Administradores e Diretores Gerais mantêm visão total para supervisão
+      // O filtro prioriza o setor que está sendo planejado (sectorName) para garantir isolamento
       const isSuperUser = 
         user?.role === "admin" || 
         user?.isOwner === true || 
@@ -140,15 +252,29 @@ export default function ActivityForm({
         (user?.cargoChefia || "").toLowerCase().includes("diretor geral");
 
       const userArea = (user?.setor || user?.reparticao || user?.departamento || "").toLowerCase().trim();
+      const currentPlanningSector = (sectorName || "").toLowerCase().trim();
 
-      const filtered = isSuperUser 
-        ? plannedActivitiesProp 
-        : plannedActivitiesProp.filter((a: any) => {
-            if (!a) return false;
-            const actSector = (a.setor || a.unidadeSelecionada || a.reparticao || a.departamento || "").toLowerCase().trim();
-            // Correspondência estrita ou inclusiva para a área do usuário
-            return userArea !== "" && (actSector === userArea || actSector.includes(userArea) || userArea.includes(actSector));
-          });
+      const filtered = plannedActivitiesProp.filter((a: any) => {
+        if (!a) return false;
+        const actSector = (
+          a.setor || 
+          a.unidadeSelecionada || 
+          a.reparticao || 
+          a.departamento || 
+          a.unidadeOrganica || 
+          ""
+        ).toLowerCase().trim();
+
+        // Se houver um setor específico sendo visualizado/planejado, o isolamento deve ser total
+        if (currentPlanningSector && currentPlanningSector !== "plano setorial" && currentPlanningSector !== "plano do departamento") {
+          return actSector === currentPlanningSector || actSector.includes(currentPlanningSector) || currentPlanningSector.includes(actSector);
+        }
+
+        // Caso contrário, aplica a lógica de permissão baseada no perfil e área do usuário
+        if (isSuperUser) return true;
+        
+        return userArea !== "" && (actSector === userArea || actSector.includes(userArea) || userArea.includes(actSector));
+      });
 
       setPlannedActivities(filtered);
     } else {
@@ -170,6 +296,14 @@ export default function ActivityForm({
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [duplicateAlert, setDuplicateAlert] = useState<{
+    isOpen: boolean;
+    type: "abort" | "different_months";
+    title: string;
+    message: string;
+    existingActivity?: any;
+    months?: string[];
+  } | null>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
@@ -2510,6 +2644,36 @@ export default function ActivityForm({
           setError("Data de fim deve ser posterior à data de início");
           return false;
         }
+
+        // Validação Estrita de Atividades Duplicadas (Nome, Código e Mês)
+        const dupCheckStep5 = checkActivityDuplicates(
+          formData,
+          plannedActivitiesProp?.length ? plannedActivitiesProp : plannedActivities,
+          initialData?.id
+        );
+
+        if (dupCheckStep5.isDuplicate) {
+          const dupMsg = `ALERTA: REGISTO ABORTADO!\nJá existe uma atividade registada com o mesmo nome ou código ("${dupCheckStep5.candName || formData.nomeAtividade}") no mesmo mês de realização (${dupCheckStep5.months?.join(", ") || "idêntico"}). A ação em curso foi abortada para evitar duplicidade no sistema.`;
+          setError(dupMsg);
+          setDuplicateAlert({
+            isOpen: true,
+            type: "abort",
+            title: "⚠️ REGISTO ABORTADO DEVIDO A DUPLICIDADE",
+            message: dupMsg,
+            existingActivity: dupCheckStep5.existingActivity,
+            months: dupCheckStep5.months,
+          });
+          return false;
+        }
+
+        if (dupCheckStep5.isDifferentMonth) {
+          setFormData((prev) => ({
+            ...prev,
+            classificacaoRecorrencia: "Atividade decorre em meses diferentes",
+            observacaoDuplicacao: `Atividade com mesmo nome/código registada para mês distinto (${dupCheckStep5.candMonths?.join(", ")})`,
+          }));
+        }
+
         return true;
       case 6:
         if (formData.necessitaTransporte === "Sim") {
@@ -3974,6 +4138,12 @@ export default function ActivityForm({
                     };
 
                     if (val === "Anual") {
+                      update.trimestres = [
+                        "1º Trimestre",
+                        "2º Trimestre",
+                        "3º Trimestre",
+                        "4º Trimestre",
+                      ];
                       update.dataInicio = `${nextYear}-01-01`;
                       update.dataFim = `${nextYear}-12-31`;
                       update.mesesRealizacao = [
@@ -4029,15 +4199,22 @@ export default function ActivityForm({
                 </label>
                 <select
                   value={formData.semestre || ""}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const sem = e.target.value;
+                    const semTrims = sem === "1º Semestre" 
+                      ? ["1º Trimestre", "2º Trimestre"]
+                      : sem === "2º Semestre"
+                        ? ["3º Trimestre", "4º Trimestre"]
+                        : [];
                     setFormData({
                       ...formData,
-                      semestre: e.target.value,
+                      semestre: sem,
+                      trimestres: semTrims,
                       dataInicio: "",
                       dataFim: "",
                       totalDias: 0,
-                    })
-                  }
+                    });
+                  }}
                   className="w-full p-3 border rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-500/20 font-bold text-blue-900"
                 >
                   <option value="">Selecione o Semestre...</option>
@@ -6717,6 +6894,33 @@ export default function ActivityForm({
                       mesRealizacao: months[0] || formData.mesRealizacao || formData.mes || "",
                     };
 
+                    // Validação Final de Duplicidade (Nome, Código e Mês)
+                    const finalDupCheck = checkActivityDuplicates(
+                      submissionData,
+                      plannedActivitiesProp?.length ? plannedActivitiesProp : plannedActivities,
+                      initialData?.id
+                    );
+
+                    if (finalDupCheck.isDuplicate) {
+                      const dupMsg = `ALERTA: REGISTO ABORTADO!\nJá existe uma atividade registada com o mesmo nome ou código ("${finalDupCheck.candName || formData.nomeAtividade}") no mesmo mês de realização (${finalDupCheck.months?.join(", ") || "idêntico"}). A submissão foi abortada para evitar duplicidade.`;
+                      setSubmissionError(dupMsg);
+                      setDuplicateAlert({
+                        isOpen: true,
+                        type: "abort",
+                        title: "⚠️ REGISTO ABORTADO DEVIDO A DUPLICIDADE",
+                        message: dupMsg,
+                        existingActivity: finalDupCheck.existingActivity,
+                        months: finalDupCheck.months,
+                      });
+                      setIsSubmitting(false);
+                      return; // ABORTA O REGISTO DA ATIVIDADE EM CURSO!
+                    }
+
+                    if (finalDupCheck.isDifferentMonth) {
+                      submissionData.classificacaoRecorrencia = "Atividade decorre em meses diferentes";
+                      submissionData.observacaoDuplicacao = `Atividade com mesmo nome/código registada para mês distinto (${finalDupCheck.candMonths?.join(", ")})`;
+                    }
+
                     persistDepartmentAndProducts(submissionData);
                     const submissionPromise = onSubmit(submissionData);
 
@@ -6771,6 +6975,70 @@ export default function ActivityForm({
             </button>
           )}
         </div>
+
+        {/* Modal de Alerta de Atividade Duplicada e Ação Abortada */}
+        {duplicateAlert?.isOpen && (
+          <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-red-200 animate-in fade-in zoom-in duration-200">
+              <div className="bg-red-600 text-white p-5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-black text-xl">
+                    ⚠️
+                  </div>
+                  <div>
+                    <h3 className="font-black text-lg leading-tight">
+                      {duplicateAlert.title}
+                    </h3>
+                    <p className="text-xs text-red-100 font-medium">
+                      Regra de Validação de Duplicidade
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDuplicateAlert(null)}
+                  className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 text-slate-800">
+                <p className="text-sm leading-relaxed font-semibold whitespace-pre-line text-red-950">
+                  {duplicateAlert.message}
+                </p>
+
+                {duplicateAlert.existingActivity && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-xs space-y-2">
+                    <span className="font-bold text-red-900 block uppercase tracking-wider text-[10px]">
+                      Registo Existente no Sistema:
+                    </span>
+                    <div className="text-red-950 font-bold text-sm">
+                      • {duplicateAlert.existingActivity.nomeAtividade || duplicateAlert.existingActivity.title || duplicateAlert.existingActivity.designacao}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-slate-600 font-medium text-[11px] pt-1">
+                      <span>Código: <strong className="text-slate-800">{duplicateAlert.existingActivity.codigoAtividade || duplicateAlert.existingActivity.numeroAtividade || duplicateAlert.existingActivity.no || 'Sem código'}</strong></span>
+                      <span>Mês: <strong className="text-slate-800">{extractMonthsFromActivity(duplicateAlert.existingActivity).join(", ") || 'Mesmo Mês'}</strong></span>
+                      <span>Departamento: <strong className="text-slate-800">{duplicateAlert.existingActivity.departamento || duplicateAlert.existingActivity.unidadeOrganica || 'Geral'}</strong></span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 font-medium leading-relaxed">
+                  💡 <strong>Instrução:</strong> Se esta atividade for realizada num mês diferente, altere o mês de realização no Passo 5 para registá-la como ocorrência em meses diferentes. Se for idêntica no mesmo mês, o registo é permanentemente bloqueado.
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
+                <button
+                  onClick={() => setDuplicateAlert(null)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                >
+                  Entendi e Abortar Ação
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

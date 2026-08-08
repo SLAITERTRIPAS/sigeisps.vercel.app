@@ -43,6 +43,26 @@ import EventBlock from "../blocos/bloco8_gerais/EventBlock";
 import { RefreshCw, X } from "lucide-react";
 import { isSuperBossUser, getUserWorkspace } from "../lib/auth";
 
+const WorkspaceRedirect: React.FC<{
+  workspace: string;
+  onSetView?: (view: any) => void;
+  setDashboardTitle?: (title: string) => void;
+}> = ({ workspace, onSetView, setDashboardTitle }) => {
+  React.useEffect(() => {
+    if (setDashboardTitle) setDashboardTitle(workspace);
+    if (onSetView) onSetView("dashboard");
+  }, [workspace, onSetView, setDashboardTitle]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full bg-slate-50">
+      <div className="flex flex-col items-center gap-4">
+        <RefreshCw className="animate-spin text-blue-900" size={32} />
+        <p className="text-blue-900 font-black text-xs tracking-widest uppercase">Redirecionando para o Painel...</p>
+      </div>
+    </div>
+  );
+};
+
 interface ViewRendererProps {
   view: string;
   user: any;
@@ -252,15 +272,12 @@ export const ViewRenderer: React.FC<ViewRendererProps> = ({
       if (extendedUser && !isSuperBossUser(extendedUser)) {
         const workspace = getUserWorkspace(extendedUser);
         if (workspace) {
-          if (onSetView) onSetView("dashboard");
-          if (setDashboardTitle) setDashboardTitle(workspace);
           return (
-            <div className="flex flex-col items-center justify-center h-full bg-slate-50">
-              <div className="flex flex-col items-center gap-4">
-                <RefreshCw className="animate-spin text-blue-900" size={32} />
-                <p className="text-blue-900 font-black text-xs tracking-widest uppercase">Redirecionando para o Painel...</p>
-              </div>
-            </div>
+            <WorkspaceRedirect
+              workspace={workspace}
+              onSetView={onSetView}
+              setDashboardTitle={setDashboardTitle}
+            />
           );
         }
       }

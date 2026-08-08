@@ -600,7 +600,34 @@ export function saveDepartmentActivity(departmentName: string, activityData: any
   try {
     const deptKey = departmentName.trim().toLowerCase();
     const current = getDepartmentStoredActivities(departmentName);
-    const filtered = current.filter((a: any) => a.id !== activityData.id && a.nomeAtividade !== activityData.nomeAtividade);
+
+    const norm = (s: any) => String(s || "").trim().toLowerCase();
+    const getActMonths = (act: any) => {
+      if (Array.isArray(act.mesesRealizacao)) return act.mesesRealizacao.map(norm);
+      if (act.mesRealizacao) return [norm(act.mesRealizacao)];
+      if (act.mes) return [norm(act.mes)];
+      return [];
+    };
+
+    const candMonths = getActMonths(activityData);
+    const candName = norm(activityData.nomeAtividade || activityData.title);
+    const candCode = norm(activityData.codigoAtividade || activityData.numeroAtividade || activityData.no);
+
+    const filtered = current.filter((a: any) => {
+      if (a.id === activityData.id) return false; // Substitui o próprio registo sendo editado
+
+      const aName = norm(a.nomeAtividade || a.title);
+      const aCode = norm(a.codigoAtividade || a.numeroAtividade || a.no);
+
+      if ((candName && aName === candName) || (candCode && aCode === candCode)) {
+        const aMonths = getActMonths(a);
+        const hasSameMonth = candMonths.some((cm) => aMonths.some((am) => cm === am || cm.includes(am) || am.includes(cm)));
+        // Se for no mesmo mês e mesmo nome/código, substitui. Se for em meses diferentes, MANTÉM AMBOS!
+        if (hasSameMonth) return false;
+      }
+      return true;
+    });
+
     filtered.unshift(activityData);
     localStorage.setItem(`sigep_dept_activities_${deptKey}`, safeJSONStringify(filtered));
 

@@ -500,11 +500,7 @@ export default function AcaoOrcamentalView({
             matchesUnitStr(act.departamento, userDept) ||
             matchesUnitStr(act.reparticao, userDept) ||
             matchesUnitStr(act.setor, userDept) ||
-            matchesUnitStr(act.orgao, userDept) ||
-            matchesUnitStr(act.solicitante, userDept) ||
-            matchesUnitStr(act.unidade, userDept) ||
-            matchesUnitStr(act.origem, userDept) ||
-            matchesUnitStr(act.title || act.designacao, userDept)
+            matchesUnitStr(act.orgao, userDept)
           );
         });
       }
@@ -646,7 +642,7 @@ export default function AcaoOrcamentalView({
           );
           const pUnit = Number(r.precoUnitario || r.preco || (qty > 0 ? val / qty : 0));
 
-          if (val > 0 || qty > 0) {
+          if (val >= 0 || qty >= 0) {
             hasProcessedRubrica = true;
             if (!rubricaMap[rubricaStr]) {
               rubricaMap[rubricaStr] = {
@@ -1143,7 +1139,7 @@ export default function AcaoOrcamentalView({
           const val = Number(r.valorTotal || r.total || r.valor || r.precoTotal || 0);
           const pUnit = Number(r.precoUnitario || r.preco || (qty > 0 ? val / qty : 0));
 
-          if (val > 0 || qty > 0) {
+          if (val >= 0 || qty >= 0) {
             hasRubrica = true;
             const targetLabel = getOfficialRubricaLabel(rubStr, necStr);
 
@@ -1187,7 +1183,7 @@ export default function AcaoOrcamentalView({
         const rubStr = String(act.rubrica || act.categoria || "").trim();
         const necStr = String(act.necessidade || act.designacao || act.title || "").trim();
 
-        if (val > 0 || qty > 0) {
+        if (val >= 0 || qty >= 0) {
           const targetLabel = getOfficialRubricaLabel(rubStr, necStr);
           if (!map[targetLabel]) {
             map[targetLabel] = {
@@ -1320,6 +1316,11 @@ export default function AcaoOrcamentalView({
 
   // Determinar o teto orçamental estático padrão por nível hierárquico
   const defaultTeto = useMemo(() => {
+    // Se não existirem atividades registadas/orçamentadas para este setor/departamento, limpa o valor (0 MZN)
+    if (sectorActivities.length === 0) {
+      return 0;
+    }
+
     const titleUpper = title.toUpperCase();
     if (
       titleUpper.includes("DIRETOR GERAL") ||
@@ -1343,7 +1344,7 @@ export default function AcaoOrcamentalView({
     } else {
       return 500000; // 500k MZN (Repartições / Setores)
     }
-  }, [title]);
+  }, [title, sectorActivities.length]);
 
   const tetoMax = customTeto > 0 ? customTeto : defaultTeto;
 
@@ -2017,7 +2018,8 @@ export default function AcaoOrcamentalView({
           </div>
 
           {/* Cards de Métricas Resumo do Orçamento Geral */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {sectorActivities.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl shadow-sm border border-slate-700">
               <span className="text-[10px] font-black uppercase tracking-widest text-sky-400 block mb-1">
                 Orçamento Geral Calculado (Atividades)
@@ -2062,10 +2064,31 @@ export default function AcaoOrcamentalView({
                 Especificadas em Rúbrica
               </span>
             </div>
-          </div>
+            </div>
+          ) : (
+            <div className="bg-white p-16 rounded-3xl border-2 border-dashed border-slate-200 text-center">
+              <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Coins className="text-slate-300" size={40} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">Sem Plano Orçamental Registado</h3>
+              <p className="text-slate-500 text-sm max-w-md mx-auto mt-2 leading-relaxed">
+                Não foram encontradas atividades planificadas para o nível estrutural 
+                <strong className="text-slate-900 font-black px-1.5">
+                  {selectedLevel.toUpperCase()}
+                </strong> 
+                {selectedUnit !== "todos" && (
+                  <>
+                    na unidade <strong className="text-slate-900 font-black px-1.5">{selectedUnit}</strong>
+                  </>
+                )}
+                . O orçamento só é gerado após a inserção de atividades e rúbricas na matriz.
+              </p>
+            </div>
+          )}
 
-          {/* Resumo Executivo Rápido por Categoria / Rúbrica (Ex: Quanto necessita para Materiais de Consumo Escritório) */}
-          <div className="bg-sky-900/5 border border-sky-200/80 p-5 rounded-3xl space-y-3">
+          {/* Resumo Executivo Rápido por Categoria / Rúbrica */}
+          {sectorActivities.length > 0 && (
+            <div className="bg-sky-900/5 border border-sky-200/80 p-5 rounded-3xl space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black uppercase tracking-widest text-sky-900 flex items-center gap-2">
                 💡 Resumo Consolidado por Rúbrica (Materiais, Serviços, Ajudas de Custo)
@@ -2121,10 +2144,13 @@ export default function AcaoOrcamentalView({
                 Nenhuma rúbrica ou valor cadastrado para este nível.
               </p>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Seção Principal de Resumo Tabela Dinâmica SISTAFE (Matriz Orçamental) */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+          {sectorActivities.length > 0 && (
+            <>
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -2295,7 +2321,6 @@ export default function AcaoOrcamentalView({
             </div>
           </div>
 
-          {/* Tabela de Alta Fidelidade Orçamental (Pivot) para Impressão */}
           <div
             id="acao-orcamental-print-area"
             className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 overflow-hidden"
@@ -2385,6 +2410,7 @@ export default function AcaoOrcamentalView({
               </table>
             </div>
           </div>
+          </>)}
         </div>
       )}
 

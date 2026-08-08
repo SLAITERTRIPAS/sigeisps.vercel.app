@@ -17,39 +17,28 @@ export default function SplashScreen({
   const [phase, setPhase] = useState<"loading" | "welcome">("loading");
   const [progress, setProgress] = useState(0);
 
-  const loadingDuration = 400;
-  const welcomeDuration = 2000;
-  const totalDuration = loadingDuration + welcomeDuration;
-
   useEffect(() => {
-    let timer: NodeJS.Timeout;
     let progressTimer: NodeJS.Timeout;
+    let currentProg = 0;
 
-    if (phase === "loading") {
-      timer = setTimeout(() => {
-        setPhase("welcome");
-      }, loadingDuration);
-    } else if (phase === "welcome") {
-      const startTime = Date.now();
-
-      progressTimer = setInterval(() => {
-        const now = Date.now();
-        const elapsed = now - startTime;
-        let p = Math.floor((elapsed / welcomeDuration) * 100);
-        if (p > 100) p = 100;
-        setProgress(p);
-      }, 50);
-
-      timer = setTimeout(() => {
-        onFinish();
-      }, welcomeDuration);
-    }
+    progressTimer = setInterval(() => {
+      currentProg += 1;
+      if (currentProg >= 100) {
+        currentProg = 100;
+        setProgress(100);
+        clearInterval(progressTimer);
+        setTimeout(() => {
+          onFinish();
+        }, 50);
+      } else {
+        setProgress(Math.round(currentProg));
+      }
+    }, 30);
 
     return () => {
-      if (timer) clearTimeout(timer);
       if (progressTimer) clearInterval(progressTimer);
     };
-  }, [phase, onFinish, totalDuration]);
+  }, [onFinish]);
 
   const currentYear = new Date().getFullYear();
 
@@ -162,8 +151,21 @@ export default function SplashScreen({
                 ))}
             </div>
 
-            <div className="mb-12">
+            <div className="mb-6">
               <ProcessingCircle size={60} strokeWidth={2} />
+            </div>
+
+            {/* Progress bar with numeric percentage underneath */}
+            <div className="w-full max-w-sm flex flex-col items-center gap-2 mb-6 px-4">
+              <div className="w-full h-4 bg-slate-100 rounded-full p-[2px] border border-slate-200/80 shadow-inner overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 shadow"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span className="text-blue-700 font-serif text-2xl font-black tracking-tight tabular-nums animate-pulse">
+                {progress}%
+              </span>
             </div>
 
             <motion.div
@@ -172,7 +174,7 @@ export default function SplashScreen({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <p className="font-black text-2xl tracking-[0.4em] animate-pulse text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-500 to-orange-600">
+              <p className="font-black text-xl tracking-[0.2em] text-slate-700">
                 {initStatus || "Processando..."}
               </p>
             </motion.div>

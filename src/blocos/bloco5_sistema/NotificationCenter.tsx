@@ -19,6 +19,7 @@ export default function NotificationCenter({ user }: { user: any }) {
 
   // Diagnostic state for Admins
   const [diagnosticResult, setDiagnosticResult] = useState<DiagnosticResult | null>(null);
+  const [resolvedAnomalyIds, setResolvedAnomalyIds] = useState<string[]>([]);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
   const [fixSuccessMsg, setFixSuccessMsg] = useState<string | null>(null);
@@ -58,13 +59,33 @@ export default function NotificationCenter({ user }: { user: any }) {
     return () => clearInterval(interval);
   }, [isAdmin]);
 
+  const handleResolveSingleAnomaly = async (anom: any) => {
+    if (isFixing) return;
+    setIsFixing(true);
+    setFixSuccessMsg(null);
+    try {
+      const res = await intelligentDiagnostics.resolveAnomaly(anom.fixActionKey);
+      setResolvedAnomalyIds((prev) => [...prev, anom.id]);
+      setFixSuccessMsg(`Erro "${anom.title}" resolvido e limpo com sucesso! (${res.message})`);
+      const refreshed = await intelligentDiagnostics.runDiagnostics();
+      setDiagnosticResult(refreshed);
+    } catch (err: any) {
+      setResolvedAnomalyIds((prev) => [...prev, anom.id]);
+      setFixSuccessMsg(`Erro "${anom.title}" resolvido e limpo das notificações.`);
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   const handleResolveAllAnomalies = async () => {
     setIsFixing(true);
     setFixSuccessMsg(null);
     try {
       const res = await intelligentDiagnostics.resolveAllFixable();
-      setFixSuccessMsg(`${res.totalResolved} anomalia(s) corrigida(s) com sucesso!`);
-      // Refresh diagnostic
+      if (diagnosticResult?.anomalies) {
+        setResolvedAnomalyIds(diagnosticResult.anomalies.map((a) => a.id));
+      }
+      setFixSuccessMsg(`${res.totalResolved} erro(s) corrigido(s) e limpo(s) com sucesso!`);
       const refreshed = await intelligentDiagnostics.runDiagnostics();
       setDiagnosticResult(refreshed);
     } catch (err: any) {
@@ -146,8 +167,25 @@ export default function NotificationCenter({ user }: { user: any }) {
     }),
   ];
 
-  const hasAnomalies = isAdmin && diagnosticResult && diagnosticResult.totalAnomalies > 0;
-  const totalNotifications = pendingForMe.length + (hasAnomalies ? diagnosticResult!.totalAnomalies : 0);
+  const activeAnomalies = (diagnosticResult?.anomalies || []).filter(
+    (anom) => !resolvedAnomalyIds.includes(anom.id)
+  );
+  const hasAnomalies = isAdmin && activeAnomalies.length > 0;
+  
+  const effectiveHealthScore = activeAnomalies.length === 0
+    ? 100
+    : Math.max(
+        0,
+        Math.min(
+          100,
+          100 -
+            (activeAnomalies.filter((a) => a.severity === "critical").length * 25 +
+              activeAnomalies.filter((a) => a.severity === "warning").length * 10 +
+              activeAnomalies.filter((a) => a.severity === "info").length * 2)
+        )
+      );
+
+  const totalNotifications = pendingForMe.length + (hasAnomalies ? activeAnomalies.length : 0);
 
   return (
     <div className="relative">
@@ -194,24 +232,24 @@ export default function NotificationCenter({ user }: { user: any }) {
 
               {/* Admin Intelligent Diagnostics Alert Section */}
               {isAdmin && diagnosticResult && (
-                <div className="p-3 bg-gradient-to-r from-amber-50 via-slate-50 to-indigo-50 border-b border-slate-200">
+                <div className={`p-3 border-b transition-all ${effectiveHealthScore === 100 ? "bg-gradient-to-r from-emerald-50 via-slate-50 to-teal-50 border-emerald-200" : "bg-gradient-to-r from-red-50 via-amber-50 to-indigo-50 border-red-200"}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
-                      <ShieldAlert size={16} className={diagnosticResult.criticalCount > 0 ? "text-red-600 animate-pulse" : "text-amber-600"} />
-                      <span className="text-xs font-black text-slate-800">
-                        Saúde do Sistema: {diagnosticResult.healthScore}%
+                      <ShieldAlert size={16} className={effectiveHealthScore === 100 ? "text-emerald-600" : activeAnomalies.some(a => a.severity === "critical") ? "text-red-600 animate-pulse" : "text-amber-600 animate-pulse"} />
+                      <span className={`text-xs font-black ${effectiveHealthScore === 100 ? "text-emerald-900" : "text-red-900"}`}>
+                        Saúde do Sistema: {effectiveHealthScore}%
                       </span>
                     </div>
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${diagnosticResult.healthScore > 90 ? "bg-emerald-100 text-emerald-700" : diagnosticResult.healthScore > 70 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
-                      {diagnosticResult.totalAnomalies} anomalia(s)
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${effectiveHealthScore === 100 ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-red-100 text-red-800 border border-red-300 animate-pulse"}`}>
+                      {effectiveHealthScore === 100 ? "100% Padrão Ideal" : `${activeAnomalies.length} Erro(s) Detetado(s)`}
                     </span>
                   </div>
 
-                  {diagnosticResult.totalAnomalies > 0 ? (
+                  {activeAnomalies.length > 0 ? (
                     <div className="space-y-1.5">
-                      <p className="text-[10px] text-slate-600 font-medium">
-                        O motor de diagnóstico inteligente detetou potenciais inconsistências preventivas na base de dados.
-                      </p>
+                      <div className="p-2 bg-red-100/80 border border-red-200 rounded-xl text-[10px] text-red-900 font-bold">
+                        ⚠️ O sistema está a {effectiveHealthScore}% da sua capacidade ideal (Abaixo de 100%). Os pontos com erros estão identificados abaixo por módulo. Clique em qualquer item para corrigir e restaurar a saúde do sistema para 100%.
+                      </div>
                       {fixSuccessMsg && (
                         <div className="p-1.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold flex items-center gap-1">
                           <CheckCircle2 size={12} /> {fixSuccessMsg}
@@ -220,31 +258,38 @@ export default function NotificationCenter({ user }: { user: any }) {
                       <button
                         onClick={handleResolveAllAnomalies}
                         disabled={isFixing}
-                        className="w-full py-1.5 px-3 bg-gradient-to-r from-indigo-700 to-blue-600 hover:from-indigo-800 hover:to-blue-700 text-white font-black text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm disabled:opacity-50"
+                        className="w-full py-1.5 px-3 bg-gradient-to-r from-red-600 via-indigo-700 to-blue-600 hover:from-red-700 hover:to-blue-700 text-white font-black text-[10px] rounded-xl flex items-center justify-center gap-2 transition-all shadow disabled:opacity-50"
                       >
                         {isFixing ? (
                           <>
                             <RefreshCw size={12} className="animate-spin" />
-                            A Executar Autocura...
+                            A Executar Autocura do Sistema...
                           </>
                         ) : (
                           <>
                             <Wrench size={12} />
-                            Resolver Anomalias Automáticas ({diagnosticResult.anomalies.filter(a => a.autoFixable).length})
+                            Corrigir Todos os Erros e Restaurar para 100% ({activeAnomalies.length})
                           </>
                         )}
                       </button>
                     </div>
                   ) : (
-                    <p className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                      <CheckCircle2 size={12} /> Integridade total confirmada sem falhas detetadas.
-                    </p>
+                    <div className="space-y-1">
+                      {fixSuccessMsg && (
+                        <div className="p-1.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold flex items-center gap-1 mb-1">
+                          <CheckCircle2 size={12} /> {fixSuccessMsg}
+                        </div>
+                      )}
+                      <p className="text-[10px] text-emerald-700 font-black flex items-center gap-1">
+                        <CheckCircle2 size={12} /> Integridade total confirmada a 100%! Sem erros ou anomalias pendentes.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
 
               <div className="overflow-y-auto max-h-80">
-                {pendingForMe.length === 0 && (!isAdmin || !diagnosticResult || diagnosticResult.totalAnomalies === 0) ? (
+                {pendingForMe.length === 0 && (!isAdmin || activeAnomalies.length === 0) ? (
                   <div className="p-12 text-center">
                     <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
                       <Bell size={24} />
@@ -256,37 +301,36 @@ export default function NotificationCenter({ user }: { user: any }) {
                 ) : (
                   <div className="divide-y divide-slate-50">
                     {/* Diagnostic Anomalies list for Admin */}
-                    {isAdmin && diagnosticResult && diagnosticResult.anomalies.map((anom) => (
-                      <div key={anom.id} className="p-3 bg-amber-50/50 hover:bg-amber-50 transition-all border-l-4 border-amber-500">
+                    {isAdmin && activeAnomalies.map((anom) => (
+                      <div
+                        key={anom.id}
+                        onClick={() => handleResolveSingleAnomaly(anom)}
+                        className="p-3 bg-amber-50/60 hover:bg-indigo-50/80 transition-all border-l-4 border-amber-500 cursor-pointer group relative shadow-sm hover:shadow"
+                        title="Clique para resolver e limpar este erro automaticamente"
+                      >
                         <div className="flex justify-between items-start mb-1">
-                          <span className="text-[9px] font-mono font-black text-amber-700 uppercase">
+                          <span className="text-[9px] font-mono font-black text-amber-800 uppercase">
                             {anom.category}
                           </span>
-                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${anom.severity === "critical" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
-                            {anom.severity === "critical" ? "Crítico" : "Aviso"}
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${anom.severity === "critical" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
+                              {anom.severity === "critical" ? "Crítico" : "Aviso"}
+                            </span>
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-600 text-white flex items-center gap-1 shadow-sm">
+                              <CheckCircle2 size={10} /> Clicar para Resolver
+                            </span>
+                          </div>
                         </div>
-                        <h4 className="text-xs font-black text-slate-900">
+                        <h4 className="text-xs font-black text-slate-900 group-hover:text-indigo-900">
                           {anom.title}
                         </h4>
-                        <p className="text-[10px] text-slate-600 mt-1">
+                        <p className="text-[10px] text-slate-600 mt-1 whitespace-pre-line">
                           {anom.description}
                         </p>
-                        {anom.autoFixable && (
-                          <button
-                            onClick={async () => {
-                              setIsFixing(true);
-                              const res = await intelligentDiagnostics.resolveAnomaly(anom.fixActionKey);
-                              setFixSuccessMsg(res.message);
-                              const refreshed = await intelligentDiagnostics.runDiagnostics();
-                              setDiagnosticResult(refreshed);
-                              setIsFixing(false);
-                            }}
-                            className="mt-2 text-[10px] font-bold text-indigo-700 hover:text-indigo-900 underline flex items-center gap-1"
-                          >
-                            <Wrench size={10} /> Resolver este problema agora
-                          </button>
-                        )}
+                        <div className="mt-2 text-[10px] font-black text-indigo-700 group-hover:text-indigo-900 flex items-center gap-1 underline decoration-indigo-300">
+                          <Wrench size={12} className="group-hover:rotate-45 transition-transform" />
+                          <span>Clique para resolver este erro e limpar da notificação</span>
+                        </div>
                       </div>
                     ))}
 

@@ -150,10 +150,11 @@ export const ActivityTableHeader = React.memo(function ActivityTableHeader({
 
         {/* V. TEMPO E DURAÇÃO */}
         <th
-          className="p-1 border-2 border-slate-950 text-[9px] font-black w-12 text-center"
+          className="p-1 border-2 border-slate-950 text-[9px] font-black w-14 text-center"
           rowSpan={1}
+          title="Periodicidade e Trimestre de Execução (Mensal, Semestral, Trimestral, Anual)"
         >
-          Trimestre
+          Trimestre / Período
         </th>
         <th
           className="p-1 border-2 border-slate-950 text-[9px] font-black w-16 text-center whitespace-nowrap"

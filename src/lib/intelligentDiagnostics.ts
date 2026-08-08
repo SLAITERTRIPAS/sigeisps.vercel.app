@@ -48,37 +48,93 @@ export const intelligentDiagnostics = {
         const matrixSnap = await getDocs(collection(db, "matrix_activities"));
         const activities = matrixSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-        // Detectar Duplicatas
-        const seen = new Map<string, string[]>();
+        // Detectar Atividades Duplicadas por Título, Direção e Departamento
+        const seen = new Map<string, any[]>();
         const normalize = (str: any) =>
           String(str || "")
             .trim()
             .toLowerCase()
             .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "");
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ");
 
         activities.forEach((act: any) => {
-          const key = `${normalize(act.nomeAtividade || act.designacao || act.title)}|${normalize(act.direcao)}|${normalize(act.rubrica)}`;
+          const title = act.nomeAtividade || act.designacao || act.title || "";
+          const dir = act.direcao || act.unidadeOrganica || "Geral / Serviços Centrais";
+          const dept = act.departamento || "Geral";
+          const key = `${normalize(title)}|${normalize(dir)}|${normalize(dept)}`;
           if (!seen.has(key)) seen.set(key, []);
-          seen.get(key)!.push(act.id);
+          seen.get(key)!.push(act);
         });
 
-        const duplicateIds: string[] = [];
-        seen.forEach((ids) => {
-          if (ids.length > 1) duplicateIds.push(...ids.slice(1));
+        const duplicateGroups: {
+          title: string;
+          direcao: string;
+          departamento: string;
+          items: any[];
+        }[] = [];
+        let totalDuplicateCount = 0;
+
+        seen.forEach((items) => {
+          if (items.length > 1) {
+            const first = items[0];
+            duplicateGroups.push({
+              title: first.nomeAtividade || first.designacao || first.title || "Atividade Sem Nome",
+              direcao: first.direcao || first.unidadeOrganica || "Geral / Serviços Centrais",
+              departamento: first.departamento || "Geral",
+              items,
+            });
+            totalDuplicateCount += items.length - 1;
+          }
         });
 
-        if (duplicateIds.length > 0) {
+        if (duplicateGroups.length > 0) {
+          const locationDetails = duplicateGroups
+            .slice(0, 5)
+            .map(
+              (g) =>
+                `• [Direção: ${g.direcao} | Departamento: ${g.departamento}] → Atividade: "${g.title}" (${g.items.length} registos repetidos)`
+            )
+            .join("\n");
+
+          const extraCount = duplicateGroups.length - 5;
+          const extraText = extraCount > 0 ? `\n...e mais ${extraCount} grupo(s) com atividades duplicadas.` : "";
+
           anomalies.push({
             id: "diag_dup_activities",
             title: "Atividades Duplicadas na Matriz POA",
-            description: `Foram detetadas ${duplicateIds.length} atividades duplicadas que distorcem o orçamento global e métricas de desempenho.`,
+            description: `Detetadas ${totalDuplicateCount} cópia(s) duplicada(s) em ${duplicateGroups.length} grupo(s) de atividades:\n${locationDetails}${extraText}`,
             category: "Matriz & POA",
             severity: "critical",
             autoFixable: true,
-            affectedCount: duplicateIds.length,
+            affectedCount: totalDuplicateCount,
             fixActionKey: "fix_duplicate_activities",
-            recommendation: "Executar a fusão e eliminação automática de registos duplicados na matriz.",
+            recommendation: "Método de solução: Substituir e consolidar a atividade mantendo os dados mais completos e eliminar permanentemente os registos duplicados da base de dados Firestore.",
+          });
+        }
+
+        // Detectar Atividades no Departamento de Património
+        const patrimonioActs = activities.filter((act: any) => {
+          const deptStr = normalize(act.departamento || act.reparticao || act.unidadeOrganica || "");
+          return deptStr.includes("patrimonio");
+        });
+
+        if (patrimonioActs.length > 0) {
+          const patDetails = patrimonioActs
+            .slice(0, 3)
+            .map((act: any) => `• [Departamento de Património] → Atividade: "${act.nomeAtividade || act.title || act.designacao || 'Atividade'}"`)
+            .join("\n");
+
+          anomalies.push({
+            id: "diag_patrimonio_activities",
+            title: "Atividades no Departamento de Património",
+            description: `Detetada(s) ${patrimonioActs.length} atividade(s) registada(s) no Departamento de Património:\n${patDetails}`,
+            category: "Matriz & POA",
+            severity: "critical",
+            autoFixable: true,
+            affectedCount: patrimonioActs.length,
+            fixActionKey: "fix_duplicate_activities",
+            recommendation: "Método de solução: Eliminar as atividades do Departamento de Património e recalcular a numeração de todos os departamentos a começar em 001.",
           });
         }
 
@@ -102,7 +158,12 @@ export const intelligentDiagnostics = {
 
         // Detectar Atividades com Orçamento Zero ou Nulo sem justificativa
         const zeroBudget = activities.filter(
-          (act: any) => !act.valorTotal && !act.orcamentoTotal && !act.total
+          (act: any) =>
+            !act.valorTotal &&
+            !act.orcamentoTotal &&
+            !act.total &&
+            act.orcamentoStatus !== "Analisado - Sem Orçamento Alocado" &&
+            !act.orcamentoRegularizado
         );
         if (zeroBudget.length > 0) {
           anomalies.push({
@@ -111,10 +172,10 @@ export const intelligentDiagnostics = {
             description: `Detetadas ${zeroBudget.length} atividades sem orçamento definido. Isso pode gerar inconsistências em execuções financeiras futuras.`,
             category: "Matriz & POA",
             severity: "info",
-            autoFixable: false,
+            autoFixable: true,
             affectedCount: zeroBudget.length,
             fixActionKey: "review_zero_budget",
-            recommendation: "Solicitar aos responsáveis de setor a inserção de estimativa orçamental.",
+            recommendation: "Regularizar orçamento das atividades pendentes.",
           });
         }
       } catch (e) {
@@ -175,7 +236,7 @@ export const intelligentDiagnostics = {
         const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
         const stagnatedExps = exps.filter((e: any) => {
-          if (e.status !== "Pendente") return false;
+          if (e.status !== "Pendente" || e.notificacaoReiteracao) return false;
           const created = e.createdAt ? new Date(e.createdAt).getTime() : 0;
           return created > 0 && now - created > SEVEN_DAYS_MS;
         });
@@ -195,7 +256,7 @@ export const intelligentDiagnostics = {
         }
 
         const stagnatedReqs = reqs.filter((r: any) => {
-          if (r.status === "Finalizada" || r.status === "Rejeitada") return false;
+          if (r.status === "Finalizada" || r.status === "Rejeitada" || r.notificacaoUrgente) return false;
           const created = r.createdAt ? new Date(r.createdAt).getTime() : 0;
           return created > 0 && now - created > SEVEN_DAYS_MS;
         });
@@ -410,6 +471,30 @@ export const intelligentDiagnostics = {
         return {
           success: true,
           message: `Gerados ${count} códigos de tombo inventário sequenciais para o património.`,
+        };
+      }
+
+      if (fixActionKey === "review_zero_budget") {
+        const snap = await getDocs(collection(db, "matrix_activities"));
+        let count = 0;
+        const batch = writeBatch(db);
+
+        snap.docs.forEach((docSnap) => {
+          const act = docSnap.data();
+          if (!act.valorTotal && !act.orcamentoTotal && !act.total) {
+            batch.update(doc(db, "matrix_activities", docSnap.id), {
+              valorTotal: 0,
+              orcamentoStatus: "Analisado - Sem Orçamento Alocado",
+              orcamentoRegularizado: true,
+              updatedAt: serverTimestamp(),
+            });
+            count++;
+          }
+        });
+        if (count > 0) await batch.commit();
+        return {
+          success: true,
+          message: `Regularizado estado orçamental de ${count} atividades com orçamento não definido.`,
         };
       }
 

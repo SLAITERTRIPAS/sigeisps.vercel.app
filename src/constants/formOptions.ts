@@ -3009,6 +3009,13 @@ export const FONTES_RECEITA = [
   "Outras Fontes",
 ];
 
+export const PERIODOS_EXECUCAO = [
+  "Mensal",
+  "Semestral",
+  "Trimestral",
+  "Anual",
+];
+
 export const TRIMESTRES = [
   "1º Trimestre",
   "2º Trimestre",

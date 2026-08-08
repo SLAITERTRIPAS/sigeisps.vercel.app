@@ -1108,6 +1108,7 @@ export const firestoreService = {
         )
           .trim()
           .toLowerCase();
+
         const key = `${dept}::${name}`;
 
         if (name && seen.has(key)) {
@@ -1120,6 +1121,7 @@ export const firestoreService = {
 
       for (const dupId of duplicatesToDelete) {
         await deleteDoc(doc(db, "matrix_activities", dupId));
+        await deleteDoc(doc(db, "actividades", dupId));
       }
 
       // 2. Group by department and resequence starting at 001

@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { FONTES_RECEITA, PRIORIDADES } from "../../constants/formOptions";
 import { isSuperBossUser, getAuthorizedActivities } from "../../lib/auth";
 import { firestoreService } from "../../lib/firestoreService";
+import { getActivityTotal } from "./systemUtils";
 import {
   getDirectionAbbreviation,
   normalizeString,
@@ -327,12 +328,8 @@ export default function MatrixView({
   };
 
   const handleAddActivity = (data: any) => {
-    // Calculate total value from rubrics
-    const totalValue =
-      data.rubricas?.reduce(
-        (acc: number, r: any) => acc + (r.valorTotal || r.total || 0),
-        0,
-      ) || 0;
+    // Calculate total value
+    const totalValue = getActivityTotal(data);
 
     // Get main rubric and necessity (from the first one)
     const mainRubric = data.rubricas?.[0]?.rubrica || "";
@@ -377,8 +374,8 @@ export default function MatrixView({
       dataInicio: data.dataInicio || "",
       dataFim: data.dataFim || "",
       totalDias: Number(data.totalDias) || 0,
-      distanciaKm: Number(data.distanciaKm || data.distanciaDestino || 0),
-      distanciaDestino: Number(data.distanciaDestino || data.distanciaKm || 0),
+      distanciaKm: Number((data.distanciaKm || data.distanciaDestino || 0) * 2),
+      distanciaDestino: Number(data.distanciaDestino || 0),
       litrosGasoleo: Number(data.litrosGasoleo || 0),
       precoLitro: Number(data.precoLitro || 0),
       valorTotalGasoleo: Number(data.valorTotalGasoleo || 0),

@@ -3,6 +3,26 @@
  */
 
 /**
+ * Calcula o total de uma atividade considerando rubricas ou transporte.
+ */
+export const getActivityTotal = (act: any): number => {
+  if (!act) return 0;
+  const hasRubricas = act.rubricas && Array.isArray(act.rubricas) && act.rubricas.length > 0;
+  const rubricVal = hasRubricas
+    ? act.rubricas.reduce(
+        (acc: number, r: any) =>
+          acc + Number(r?.valorTotal || r?.total || 0),
+        0,
+      )
+    : Number(act.valor || act.total || 0);
+  const fuelVal =
+    !hasRubricas && act.necessitaTransporte === "Sim"
+      ? Number(act.litrosGasoleo || 0) * Number(act.precoLitro || 0)
+      : 0;
+  return (isNaN(rubricVal) ? 0 : rubricVal) + (isNaN(fuelVal) ? 0 : fuelVal);
+};
+
+/**
  * Verifica se um item é considerado "dado de programador" (teste).
  * Critérios: Ano 2027 ou anos anteriores a 2025.
  */

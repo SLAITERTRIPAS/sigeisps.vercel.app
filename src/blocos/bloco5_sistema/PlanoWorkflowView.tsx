@@ -48,6 +48,7 @@ import {
 import * as XLSX from "xlsx";
 import { motion, AnimatePresence } from "motion/react";
 import { firestoreService } from "../../lib/firestoreService";
+import { getActivityTotal } from "./systemUtils";
 import { MatrixActivity } from "../../types";
 import {
   getAuthorizedActivities,
@@ -1197,22 +1198,6 @@ export default function PlanoWorkflowView({
     );
   };
 
-  const getActivityTotal = (act: any) => {
-    if (!act) return 0;
-    const rubricVal =
-      act.rubricas && Array.isArray(act.rubricas) && act.rubricas.length > 0
-        ? act.rubricas.reduce(
-            (acc: number, r: any) =>
-              acc + Number(r?.valorTotal || r?.total || 0),
-            0,
-          )
-        : Number(act.valor || act.total || 0);
-    const fuelVal =
-      act.necessitaTransporte === "Sim"
-        ? Number(act.litrosGasoleo || 0) * Number(act.precoLitro || 0)
-        : 0;
-    return (isNaN(rubricVal) ? 0 : rubricVal) + (isNaN(fuelVal) ? 0 : fuelVal);
-  };
 
   // Consolidação Orçamental Hierárquica:
   // 1. Orçamento do Departamento = soma do valor total de todas as atividades planificadas para o departamento
@@ -2664,11 +2649,32 @@ export default function PlanoWorkflowView({
         publishedBy: user?.name || user?.email || title || "Chefe do DPEP",
         publishedAt: new Date().toISOString(),
       });
-      onShowAlert(
-        publishState
-          ? "DE publicado com sucesso! Todos os Diretores agora têm acesso de consulta."
-          : "Publicação do DE anulada com sucesso!",
-      );
+
+      // Transfer activities to Monitoria sector if published
+      if (publishState) {
+        const months = [
+          "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+          "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ];
+        const nextMonthIndex = (new Date().getMonth() + 1) % 12;
+        const nextMonthName = months[nextMonthIndex];
+
+        const nextMonthActivities = rawActivities.filter(
+          (act) => act.mesRealizacao === nextMonthName
+        );
+
+        for (const act of nextMonthActivities) {
+          await firestoreService.matrixActivities.update(act.id, {
+            setor: "Setor de Monitoria",
+            status: "pendente_monitoria",
+          });
+        }
+        onShowAlert(
+          `DE publicado com sucesso! Atividades para ${nextMonthName} transferidas para Monitoria.`
+        );
+      } else {
+        onShowAlert("Publicação do DE anulada com sucesso!");
+      }
     } catch (err) {
       console.error(err);
       alert("Ocorreu um erro ao atualizar o estado de publicação do DE.");
@@ -7672,10 +7678,10 @@ export default function PlanoWorkflowView({
                         dataFim: data.dataFim || "",
                         totalDias: Number(data.totalDias) || 0,
                         distanciaKm: Number(
-                          data.distanciaKm || data.distanciaDestino || 0,
+                          (data.distanciaKm || data.distanciaDestino || 0) * 2,
                         ),
                         distanciaDestino: Number(
-                          data.distanciaDestino || data.distanciaKm || 0,
+                          data.distanciaDestino || 0,
                         ),
                         litrosGasoleo: Number(data.litrosGasoleo || 0),
                         precoLitro: Number(data.precoLitro || 0),

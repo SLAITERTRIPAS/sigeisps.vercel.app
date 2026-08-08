@@ -5011,7 +5011,8 @@ export default function ActivityForm({
                               valorTotalGasoleo: val !== "" && formData.precoLitro !== "" ? Number(val) * Number(formData.precoLitro) : formData.valorTotalGasoleo
                             });
                           }}
-                          className="w-full p-2.5 border rounded-xl text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                          readOnly={true}
+                          className="w-full p-2.5 border rounded-xl text-sm font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all bg-gray-50"
                         />
                       </div>
                       <div>
@@ -5039,7 +5040,8 @@ export default function ActivityForm({
                               valorTotalGasoleo: preco !== "" && formData.litrosGasoleo !== "" ? Number(formData.litrosGasoleo) * Number(preco) : formData.valorTotalGasoleo
                             });
                           }}
-                          className="w-full p-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-bold text-blue-950"
+                          readOnly={true}
+                          className="w-full p-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-bold text-blue-950 bg-gray-50"
                         />
                       </div>
                       <div className="col-span-2">
@@ -5057,7 +5059,8 @@ export default function ActivityForm({
                               valorTotalGasoleo: val,
                             });
                           }}
-                          className="w-full p-2.5 border rounded-xl text-sm font-extrabold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                          readOnly={true}
+                          className="w-full p-2.5 border rounded-xl text-sm font-extrabold text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all bg-gray-50"
                         />
                       </div>
                     </div>

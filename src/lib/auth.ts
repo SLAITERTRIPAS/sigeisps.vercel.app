@@ -69,20 +69,20 @@ export const canAccessArea = (
     if (tSector && userAreas.some(area => tSector === area)) return true;
   }
 
-  // Correspondência genérica para a área do utilizador
-  if (uSector && tSector) {
-    if (tSector === uSector) return true;
-  }
-  if (uDept && tDept) {
-    if (tDept === uDept) return true;
-  }
-  if (uDir && tDir) {
-    if (tDir === uDir || tDir.includes(uDir) || uDir.includes(tDir)) return true;
-  }
+  // Correspondência ESTRITA para a área do utilizador (Não-chefias)
+  // Apenas vê as atividades se corresponder exatamente ao nível mais baixo da atividade.
 
-  // Se o utilizador pertencer ao mesmo departamento da atividade
-  if (uDept && tDept && (tDept === uDept)) {
-    return true;
+  if (tSector) {
+    // Se a atividade tem setor, o utilizador DEVE pertencer ao mesmo setor.
+    if (uSector && tSector === uSector) return true;
+  } else if (tDept) {
+    // Se a atividade é ao nível do departamento (sem setor),
+    // o utilizador DEVE pertencer a este departamento (e não ser de outro departamento).
+    if (uDept && tDept === uDept) return true;
+  } else if (tDir) {
+    // Se a atividade é ao nível da direção (sem depto nem setor),
+    // o utilizador DEVE pertencer a esta direção.
+    if (uDir && (tDir === uDir || tDir.includes(uDir) || uDir.includes(tDir))) return true;
   }
 
   return false;
@@ -188,7 +188,13 @@ export const getAuthorizedActivities = (activities: any[], user: any) => {
 
     // Se não for do mesmo departamento/setor, exige que esteja submetido/encaminhado (submetido === true ou status avançado)
     if (!isSameDeptOrSector) {
-      const isSubmitted = a.submetido === true || (a.status && a.status !== "setorial" && a.status !== "draft" && a.status !== "Não Submetido");
+      const isSubmitted =
+        a.submetido === true ||
+        (a.status &&
+          a.status !== "setorial" &&
+          a.status !== "draft" &&
+          a.status !== "Não Submetido") ||
+        a.status === "pendente_monitoria";
       if (!isSubmitted) return false;
     }
 

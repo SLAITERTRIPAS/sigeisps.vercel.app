@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import MainHeader from "../bloco1_apresentacao/MainHeader";
 import ActivityForm from "../bloco5_sistema/ActivityForm";
 import { firestoreService } from "../../lib/firestoreService";
-import { isSuperBossUser } from "../../lib/auth";
+import { isSuperBossUser, getAuthorizedActivities } from "../../lib/auth";
 
 interface ActivityMonitor {
   id: string;
@@ -66,19 +66,7 @@ export default function MonitoriaView({
   useEffect(() => {
     // Subscribe to both general activities and matrix activities (plans)
     const unsubMatrix = firestoreService.matrixActivities.subscribe((data) => {
-      const userSector =
-        user?.departamento || user?.direcao || user?.unidade || "";
-
-      const filtered = isAdmin
-        ? data
-        : data.filter((a) => {
-            const actSector =
-              a.unidadeSelecionada || a.direcao || a.setor || "";
-            return (
-              actSector.toLowerCase().includes(userSector.toLowerCase()) ||
-              userSector.toLowerCase().includes(actSector.toLowerCase())
-            );
-          });
+      const filtered = getAuthorizedActivities(data, user);
 
       const formatted = filtered.map((a) => ({
         id: a.id,
@@ -107,19 +95,7 @@ export default function MonitoriaView({
     });
 
     const unsubActivities = firestoreService.actividades.subscribe((data) => {
-      const userSector =
-        user?.departamento || user?.direcao || user?.unidade || "";
-
-      const filtered = isAdmin
-        ? data
-        : data.filter((a) => {
-            const actSector =
-              a.unidadeSelecionada || a.direcao || a.setor || "";
-            return (
-              actSector.toLowerCase().includes(userSector.toLowerCase()) ||
-              userSector.toLowerCase().includes(actSector.toLowerCase())
-            );
-          });
+      const filtered = getAuthorizedActivities(data, user);
 
       const formatted = filtered.map((a) => ({
         id: a.id,
@@ -816,7 +792,8 @@ export default function MonitoriaView({
                             activity.status === "em_execucao" ||
                             activity.status === "em_realizacao" ||
                             activity.status === "agendada" ||
-                            activity.status === "pendente",
+                            activity.status === "pendente" ||
+                            activity.status === "pendente_monitoria",
                         )
                         .map((activity, index) => (
                           <tr

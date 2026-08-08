@@ -17,7 +17,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { printElementById } from "../lib/printUtils";
 import { UNIDADES_ORGANICAS_SISTEMA, DEPARTAMENTOS } from "../constants/formOptions";
-import { isSuperBossUser, canAccessArea } from "../lib/auth";
+import { isSuperBossUser, canAccessArea, getAuthorizedActivities } from "../lib/auth";
 
 interface AcaoOrcamentalViewProps {
   user: any;
@@ -511,15 +511,19 @@ export default function AcaoOrcamentalView({
       const roleStr = String(user?.cargo || user?.title || user?.role || user?.cargoChefia || "").toLowerCase();
       const isDirector = roleStr.includes("diretor") || roleStr.includes("director");
 
+      // STRICT AUTHORIZATION ENFORCEMENT FIRST
+      // This ensures a department cannot see another department's budget
+      baseActivities = getAuthorizedActivities(activities, user);
+
       if (isDirector && userDirecao) {
         // Direção: visualiza e consolida o orçamento de todos os departamentos sob a alçada da direção
-        baseActivities = activities.filter((act) =>
+        baseActivities = baseActivities.filter((act) =>
           matchesUnitStr(act.direcao || act.direccao || act.unidadeOrganica, userDirecao) ||
           canAccessArea(user, act.direcao || "", act.departamento || "", act.setor || "")
         );
       } else if (userDepartamento) {
         // Cada Departamento possui orçamento próprio (soma isolada das suas atividades)
-        baseActivities = activities.filter((act) =>
+        baseActivities = baseActivities.filter((act) =>
           matchesDeptStr(act.departamento, userDepartamento) ||
           (!act.departamento && (
             matchesDeptStr(act.solicitante, userDepartamento) ||
